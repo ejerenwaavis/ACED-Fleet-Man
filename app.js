@@ -44,6 +44,8 @@ app.set('views', path.join(__dirname, 'views'));
 // Helmet is configured to allow our CDN scripts and styles
 app.use(helmet({
     contentSecurityPolicy: false, // Disabling temporarily to ensure Tailwind CDN and other scripts work out of the box without complex CSP config
+    crossOriginOpenerPolicy: false, // Prevents HTTP console warnings on Namecheap
+    originAgentCluster: false, // Prevents HTTP console warnings on Namecheap
 }));
 app.use(cors());
 

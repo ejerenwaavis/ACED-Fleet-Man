@@ -56,6 +56,29 @@
         </div>
     </div>
 
+    <!-- AI Predictive Maintenance Alerts -->
+    <% if (typeof maintenanceAlerts !== 'undefined' && maintenanceAlerts.length > 0) { %>
+        <div class="mt-8 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-md shadow-sm">
+            <div class="flex">
+                <div class="flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-robot text-amber-500 text-lg"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-bold text-amber-800">
+                        AI Predictive Maintenance: <%= maintenanceAlerts.length %> vehicles are due for an oil change.
+                    </h3>
+                    <div class="mt-2 text-sm text-amber-700">
+                        <ul role="list" class="list-disc pl-5 space-y-1 font-medium">
+                            <% maintenanceAlerts.forEach(v => { %>
+                                <li>Truck <%= v.truckNumber %> (Route <%= v.routeNumber %>) - Last serviced: <%= v.lastOilChange ? v.lastOilChange.toLocaleDateString() : 'Never logged' %></li>
+                            <% }) %>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <% } %>
+
     <!-- Unified Task List -->
     <div class="mt-8">
         <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Unified Task List</h3>

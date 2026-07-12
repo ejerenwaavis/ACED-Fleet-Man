@@ -18,6 +18,7 @@ const EveningWalkthrough = require('./models/EveningWalkthrough');
 const WeekendWalkthrough = require('./models/WeekendWalkthrough');
 const Vehicle = require('./models/Vehicle');
 const Task = require('./models/Task');
+const QRCode = require('qrcode');
 
 // 2. const app = express()
 const app = express();
@@ -185,12 +186,31 @@ app.get('/', (req, res) => {
 
 app.get('/dashboard', async (req, res) => {
     const tasks = await Task.find().sort('-createdAt').limit(20);
-    res.render('pages/dashboard', { tasks });
+    
+    // AI Advancement: Predictive Maintenance
+    const vehicles = await Vehicle.find({ status: 'active' });
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    
+    const maintenanceAlerts = vehicles.filter(v => {
+        // Flag vehicles that have never had an oil change logged, or it's been over 90 days
+        if (!v.lastOilChange) return true; 
+        return v.lastOilChange < ninetyDaysAgo;
+    });
+
+    res.render('pages/dashboard', { tasks, maintenanceAlerts });
 });
 
 // --- Fleet Management Routes ---
 app.get('/vehicles', async (req, res) => {
     const vehicles = await Vehicle.find().sort('routeNumber');
+    
+    // AI Advancement: Generate QR codes for each vehicle
+    for (let v of vehicles) {
+        const checkInUrl = `${req.protocol}://${req.get('host')}/walkthrough/quick/${v._id}`;
+        v.qrCode = await QRCode.toDataURL(checkInUrl);
+    }
+    
     res.render('pages/vehicles', { vehicles });
 });
 
@@ -247,6 +267,17 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
 app.get('/walkthrough/new', async (req, res) => {
     const vehicles = await Vehicle.find({ status: 'active' }).sort('truckNumber');
     res.render('pages/walkthrough_new', { vehicles });
+});
+
+// AI Advancement: QR Code Quick Check-In Route
+app.get('/walkthrough/quick/:id', async (req, res) => {
+    try {
+        const vehicle = await Vehicle.findById(req.params.id);
+        if (!vehicle) return res.status(404).send('Vehicle not found');
+        res.render('pages/walkthrough_quick', { vehicle });
+    } catch (err) {
+        res.status(500).send('Invalid vehicle link');
+    }
 });
 
 // Auto-save endpoint for Evening Walkthrough

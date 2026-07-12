@@ -1,0 +1,101 @@
+<%- include('../components/header', { title: 'Dashboard - ACED Fleet Man' }) %>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="md:flex md:items-center md:justify-between mb-8">
+        <div class="flex-1 min-w-0">
+            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                Dashboard Overview
+            </h2>
+        </div>
+        <div class="mt-4 flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 md:mt-0 md:ml-4">
+            <a href="/walkthrough/new" class="inline-flex items-center justify-center px-4 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors">
+                <i class="fa-solid fa-moon mr-2 text-indigo-600"></i> Evening Walkthrough
+            </a>
+            <a href="/walkthrough/weekend/new" class="inline-flex items-center justify-center px-4 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors">
+                <i class="fa-solid fa-calendar-week mr-2 text-emerald-600"></i> Weekend Walkthrough
+            </a>
+            <a href="/maintenance/new" class="inline-flex items-center justify-center px-4 py-3 sm:py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors">
+                <i class="fa-solid fa-wrench mr-2"></i> New Maintenance Request
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow border border-gray-100 border-t-4 border-t-gray-500">
+            <div class="px-4 py-5 sm:p-6">
+                <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Total Vehicles</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-gray-900">42</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow border border-gray-100 border-t-4 border-t-brand-500">
+            <div class="px-4 py-5 sm:p-6">
+                <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Active Maintenance</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-brand-600">7</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow border border-gray-100 border-t-4 border-t-amber-500">
+            <div class="px-4 py-5 sm:p-6">
+                <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Pending MMRs</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-amber-500">12</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow border border-gray-100 border-t-4 border-t-green-500">
+            <div class="px-4 py-5 sm:p-6">
+                <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Fleet Health</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-green-500">94%</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Task List -->
+    <div class="mt-8">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Unified Task List</h3>
+        <div class="bg-white shadow overflow-hidden sm:rounded-md border border-gray-200">
+            <ul role="list" class="divide-y divide-gray-200">
+                <% if (typeof tasks !== 'undefined' && tasks.length > 0) { %>
+                    <% tasks.forEach(task => { %>
+                        <li class="hover:bg-gray-50 transition-colors">
+                            <div class="px-4 py-4 sm:px-6">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-sm font-bold text-brand-600 truncate"><%= task.title %></p>
+                                    <div class="ml-2 flex-shrink-0 flex">
+                                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <%= task.category === 'walkthrough-issue' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800' %>">
+                                            <%= task.category.toUpperCase() %>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 sm:flex sm:justify-between">
+                                    <div class="sm:flex">
+                                        <p class="flex items-center text-sm text-gray-600">
+                                            <%= task.description %>
+                                        </p>
+                                    </div>
+                                    <div class="mt-2 flex items-center text-sm font-medium text-gray-500 sm:mt-0">
+                                        <p>Status: <span class="capitalize"><%= task.status %></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                    <% }) %>
+                <% } else { %>
+                    <li class="px-4 py-12 text-center text-gray-500 flex flex-col items-center">
+                        <i class="fa-solid fa-clipboard-check text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-lg font-medium text-gray-900">No pending tasks!</p>
+                        <p class="text-sm">You're all caught up. The yard is secure.</p>
+                    </li>
+                <% } %>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<%- include('../components/footer') %>

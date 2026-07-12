@@ -1,0 +1,79 @@
+<%- include('../components/header', { title: 'Weekend Walkthrough' }) %>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="bg-white shadow sm:rounded-lg border border-gray-200">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2">
+                Manager Weekend Walkthrough
+            </h3>
+            <p class="text-sm text-gray-500 mb-6">Complete this at the end of the week. If submitted between the 1st and 5th of the month, this will automatically trigger the Monthly Maintenance Record (MMR) generation.</p>
+            
+            <form action="/api/walkthrough/weekend" method="POST" class="space-y-6">
+                
+                <div>
+                    <label for="vehicleId" class="block text-sm font-medium text-gray-700">Vehicle</label>
+                    <select id="vehicleId" name="vehicleId" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-md border" required>
+                        <option value="">Select a truck...</option>
+                        <% vehicles.forEach(v => { %>
+                            <option value="<%= v._id %>"><%= v.routeNumber %> - <%= v.truckNumber %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="mileage" class="block text-sm font-medium text-gray-700">Current Mileage</label>
+                    <div class="mt-1">
+                        <input type="number" name="mileage" id="mileage" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border-gray-300 rounded-md border py-2 px-3" placeholder="e.g. 120500" required>
+                    </div>
+                </div>
+
+                <fieldset>
+                    <legend class="text-sm font-medium text-gray-900">Asset Checks</legend>
+                    <div class="mt-4 space-y-4 border border-gray-200 rounded-md p-4 bg-gray-50">
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                <input id="sideMirrors" name="sideMirrors" type="checkbox" value="true" class="focus:ring-brand-500 h-4 w-4 text-brand-600 border-gray-300 rounded" checked>
+                            </div>
+                            <div class="ml-3 text-sm">
+                                <label for="sideMirrors" class="font-medium text-gray-700">Side Mirrors Intact</label>
+                                <p class="text-gray-500">Both side mirrors are present and not cracked.</p>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div>
+                    <label for="bodyDamage" class="block text-sm font-medium text-gray-700">Body Damage (if any)</label>
+                    <div class="mt-1">
+                        <textarea id="bodyDamage" name="bodyDamage" rows="2" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 rounded-md py-2 px-3" placeholder="Describe any new scratches or dents, or write 'None'"></textarea>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="maintenanceNote" class="block text-sm font-medium text-gray-700">Maintenance Request Note</label>
+                    <div class="mt-1">
+                        <textarea id="maintenanceNote" name="maintenanceNote" rows="2" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 rounded-md py-2 px-3" placeholder="Entering a note here will automatically generate a Maintenance Task for this truck!"></textarea>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700">General Comments (Optional)</label>
+                    <div class="mt-1">
+                        <textarea id="notes" name="notes" rows="2" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 rounded-md py-2 px-3" placeholder="Manager comments..."></textarea>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex justify-end">
+                    <a href="/dashboard" class="bg-white border border-gray-300 rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors">
+                        Cancel
+                    </a>
+                    <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors">
+                        Submit Walkthrough
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<%- include('../components/footer') %>

@@ -1,18 +1,21 @@
 <%- include('../components/header', { title: 'Weekend Walkthrough' }) %>
 
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-    <div class="bg-white shadow sm:rounded-lg border border-gray-200">
-        <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2">
-                Manager Weekend Walkthrough
-            </h3>
-            <p class="text-sm text-gray-500 mb-6">Complete this at the end of the week. If submitted between the 1st and 5th of the month, this will automatically trigger the Monthly Maintenance Record (MMR) generation.</p>
-            
-            <form action="/api/walkthrough/weekend" method="POST" class="space-y-6">
-                
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <div class="mb-8 border-b border-gray-200 pb-5">
+        <h1 class="text-2xl font-semibold text-gray-900">Manager Weekend Walkthrough</h1>
+        <p class="mt-2 text-sm text-gray-600">Complete this at the end of the week. Submissions between the 1st and 5th of the month will automatically trigger Monthly Maintenance Record (MMR) generation.</p>
+    </div>
+
+    <form action="/api/walkthrough/weekend" method="POST" class="space-y-8">
+        
+        <!-- Vehicle Info Section -->
+        <div class="bg-white border border-gray-200 p-6">
+            <h2 class="text-base font-medium text-gray-900 mb-4">Vehicle Details</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="vehicleId" class="block text-sm font-medium text-gray-700">Vehicle</label>
-                    <select id="vehicleId" name="vehicleId" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-md border" required>
+                    <label for="vehicleId" class="block text-sm font-medium text-gray-700">Select Vehicle</label>
+                    <select id="vehicleId" name="vehicleId" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm border bg-white" required>
                         <option value="">Select a truck...</option>
                         <% vehicles.forEach(v => { %>
                             <option value="<%= v._id %>"><%= v.routeNumber %> - <%= v.truckNumber %></option>
@@ -22,58 +25,163 @@
 
                 <div>
                     <label for="mileage" class="block text-sm font-medium text-gray-700">Current Mileage</label>
-                    <div class="mt-1">
-                        <input type="number" name="mileage" id="mileage" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border-gray-300 rounded-md border py-2 px-3" placeholder="e.g. 120500" required>
-                    </div>
+                    <input type="number" name="mileage" id="mileage" class="mt-1 focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border-gray-300 border py-2 px-3" placeholder="e.g. 120500" required>
                 </div>
+            </div>
+        </div>
 
-                <fieldset>
-                    <legend class="text-sm font-medium text-gray-900">Asset Checks</legend>
-                    <div class="mt-4 space-y-4 border border-gray-200 rounded-md p-4 bg-gray-50">
-                        <div class="flex items-start">
-                            <div class="flex items-center h-5">
-                                <input id="sideMirrors" name="sideMirrors" type="checkbox" value="true" class="focus:ring-brand-500 h-4 w-4 text-brand-600 border-gray-300 rounded" checked>
-                            </div>
-                            <div class="ml-3 text-sm">
-                                <label for="sideMirrors" class="font-medium text-gray-700">Side Mirrors Intact</label>
-                                <p class="text-gray-500">Both side mirrors are present and not cracked.</p>
-                            </div>
+        <!-- Asset Checks Section -->
+        <div class="bg-white border border-gray-200 p-6">
+            <h2 class="text-base font-medium text-gray-900 mb-1">Asset Checklist</h2>
+            <p class="text-sm text-gray-500 mb-6">Inspect the following items. If an item fails inspection, you must provide details.</p>
+
+            <fieldset>
+                <div class="border border-gray-200 bg-white divide-y divide-gray-200">
+                    
+                    <!-- Windscreen -->
+                    <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <h4 class="text-sm font-medium text-gray-900">Windscreen</h4>
+                            <p class="text-xs text-gray-500 mt-1">Check for chips, cracks, or heavy pitting.</p>
+                        </div>
+                        <div class="flex items-center space-x-6 sm:w-64">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="windscreenStatus" value="pass" class="form-radio text-brand-600 focus:ring-brand-500 h-4 w-4" checked onchange="toggleNotes('windscreen')">
+                                <span class="ml-2 text-sm text-gray-700">Pass</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="windscreenStatus" value="fail" class="form-radio text-gray-600 focus:ring-gray-500 h-4 w-4" onchange="toggleNotes('windscreen')">
+                                <span class="ml-2 text-sm text-gray-700">Fail</span>
+                            </label>
                         </div>
                     </div>
-                </fieldset>
-
-                <div>
-                    <label for="bodyDamage" class="block text-sm font-medium text-gray-700">Body Damage (if any)</label>
-                    <div class="mt-1">
-                        <textarea id="bodyDamage" name="bodyDamage" rows="2" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 rounded-md py-2 px-3" placeholder="Describe any new scratches or dents, or write 'None'"></textarea>
+                    <div id="windscreenNotesContainer" class="hidden px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <input type="text" name="windscreenNotes" placeholder="Required: Describe windscreen damage..." class="block w-full sm:text-sm border-gray-300 border py-2 px-3 focus:ring-brand-500 focus:border-brand-500 bg-white">
                     </div>
-                </div>
 
-                <div>
-                    <label for="maintenanceNote" class="block text-sm font-medium text-gray-700">Maintenance Request Note</label>
-                    <div class="mt-1">
-                        <textarea id="maintenanceNote" name="maintenanceNote" rows="2" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 rounded-md py-2 px-3" placeholder="Entering a note here will automatically generate a Maintenance Task for this truck!"></textarea>
+                    <!-- Wipers -->
+                    <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <h4 class="text-sm font-medium text-gray-900">Wipers & Fluid</h4>
+                            <p class="text-xs text-gray-500 mt-1">Ensure blades wipe clean and fluid is full.</p>
+                        </div>
+                        <div class="flex items-center space-x-6 sm:w-64">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="wipersStatus" value="pass" class="form-radio text-brand-600 focus:ring-brand-500 h-4 w-4" checked onchange="toggleNotes('wipers')">
+                                <span class="ml-2 text-sm text-gray-700">Pass</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="wipersStatus" value="fail" class="form-radio text-gray-600 focus:ring-gray-500 h-4 w-4" onchange="toggleNotes('wipers')">
+                                <span class="ml-2 text-sm text-gray-700">Fail</span>
+                            </label>
+                        </div>
                     </div>
-                </div>
-
-                <div>
-                    <label for="notes" class="block text-sm font-medium text-gray-700">General Comments (Optional)</label>
-                    <div class="mt-1">
-                        <textarea id="notes" name="notes" rows="2" class="shadow-sm focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 rounded-md py-2 px-3" placeholder="Manager comments..."></textarea>
+                    <div id="wipersNotesContainer" class="hidden px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <input type="text" name="wipersNotes" placeholder="Required: Describe wiper issues..." class="block w-full sm:text-sm border-gray-300 border py-2 px-3 focus:ring-brand-500 focus:border-brand-500 bg-white">
                     </div>
-                </div>
 
-                <div class="pt-4 flex justify-end">
-                    <a href="/dashboard" class="bg-white border border-gray-300 rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors">
-                        Cancel
-                    </a>
-                    <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors">
-                        Submit Walkthrough
-                    </button>
+                    <!-- Mirrors -->
+                    <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <h4 class="text-sm font-medium text-gray-900">Mirrors</h4>
+                            <p class="text-xs text-gray-500 mt-1">Side and rear mirrors are present and not cracked.</p>
+                        </div>
+                        <div class="flex items-center space-x-6 sm:w-64">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="mirrorsStatus" value="pass" class="form-radio text-brand-600 focus:ring-brand-500 h-4 w-4" checked onchange="toggleNotes('mirrors')">
+                                <span class="ml-2 text-sm text-gray-700">Pass</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="mirrorsStatus" value="fail" class="form-radio text-gray-600 focus:ring-gray-500 h-4 w-4" onchange="toggleNotes('mirrors')">
+                                <span class="ml-2 text-sm text-gray-700">Fail</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="mirrorsNotesContainer" class="hidden px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <input type="text" name="mirrorsNotes" placeholder="Required: Describe mirror damage..." class="block w-full sm:text-sm border-gray-300 border py-2 px-3 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                    </div>
+
+                    <!-- Tires -->
+                    <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <h4 class="text-sm font-medium text-gray-900">Tires</h4>
+                            <p class="text-xs text-gray-500 mt-1">Check tread depth and general inflation visually.</p>
+                        </div>
+                        <div class="flex items-center space-x-6 sm:w-64">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="tiresStatus" value="pass" class="form-radio text-brand-600 focus:ring-brand-500 h-4 w-4" checked onchange="toggleNotes('tires')">
+                                <span class="ml-2 text-sm text-gray-700">Pass</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="tiresStatus" value="fail" class="form-radio text-gray-600 focus:ring-gray-500 h-4 w-4" onchange="toggleNotes('tires')">
+                                <span class="ml-2 text-sm text-gray-700">Fail</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="tiresNotesContainer" class="hidden px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <input type="text" name="tiresNotes" placeholder="Required: Describe tire issues..." class="block w-full sm:text-sm border-gray-300 border py-2 px-3 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                    </div>
+
                 </div>
-            </form>
+            </fieldset>
         </div>
-    </div>
+
+        <!-- Additional Notes Section -->
+        <div class="bg-white border border-gray-200 p-6">
+            <h2 class="text-base font-medium text-gray-900 mb-4">Additional Information</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="bodyDamage" class="block text-sm font-medium text-gray-700 mb-1">General Body Damage</label>
+                    <textarea id="bodyDamage" name="bodyDamage" rows="3" class="focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 py-2 px-3" placeholder="Describe any new scratches or dents, or write 'None'"></textarea>
+                </div>
+
+                <div>
+                    <label for="maintenanceNote" class="block text-sm font-medium text-gray-700 mb-1">Additional Maintenance Request</label>
+                    <textarea id="maintenanceNote" name="maintenanceNote" rows="3" class="focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 py-2 px-3" placeholder="Note: Failed asset checks are automatically appended to this request."></textarea>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Manager Comments (Optional)</label>
+                    <textarea id="notes" name="notes" rows="2" class="focus:ring-brand-500 focus:border-brand-500 block w-full sm:text-sm border border-gray-300 py-2 px-3" placeholder="Internal manager comments..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-4 pt-2">
+            <a href="/dashboard" class="bg-white border border-gray-300 py-2 px-4 inline-flex justify-center text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500">
+                Cancel
+            </a>
+            <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500">
+                Submit Walkthrough
+            </button>
+        </div>
+    </form>
 </div>
+
+<script>
+function toggleNotes(assetName) {
+    const radios = document.getElementsByName(assetName + 'Status');
+    const container = document.getElementById(assetName + 'NotesContainer');
+    const input = document.querySelector(`input[name="${assetName}Notes"]`);
+    
+    let isFail = false;
+    for (const radio of radios) {
+        if (radio.checked && radio.value === 'fail') {
+            isFail = true;
+            break;
+        }
+    }
+    
+    if (isFail) {
+        container.classList.remove('hidden');
+        input.required = true;
+    } else {
+        container.classList.add('hidden');
+        input.required = false;
+        input.value = '';
+    }
+}
+</script>
 
 <%- include('../components/footer') %>

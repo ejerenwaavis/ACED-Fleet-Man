@@ -6,6 +6,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const bwipjs = require('bwip-js');
 const cloudinary = require('cloudinary').v2;
 const { ZipArchive } = require('archiver');
 const { validateRecord } = require('./services/mmr/schema.js');
@@ -207,10 +208,18 @@ app.get('/dashboard', async (req, res) => {
 app.get('/vehicles', async (req, res) => {
     const vehicles = await Vehicle.find().sort('routeNumber');
     
-    // AI Advancement: Generate QR codes for each vehicle
+    // AI Advancement: Generate Barcodes for each vehicle
     for (let v of vehicles) {
-        const checkInUrl = `${req.protocol}://${req.get('host')}/walkthrough/quick/${v._id}`;
-        v.qrCode = await QRCode.toDataURL(checkInUrl);
+        const barcodeString = `V${v.truckNumber}`;
+        const pngBuffer = await bwipjs.toBuffer({
+            bcid: 'code128',
+            text: barcodeString,
+            scale: 3,
+            height: 10,
+            includetext: true,
+            textxalign: 'center',
+        });
+        v.qrCode = `data:image/png;base64,${pngBuffer.toString('base64')}`;
     }
     
     res.render('pages/vehicles', { vehicles });
@@ -223,10 +232,27 @@ app.post('/api/vehicles', async (req, res) => {
             truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status
         });
         await vehicle.save();
+        if (req.accepts('json')) return res.json(vehicle);
         res.redirect('/vehicles');
     } catch (err) {
         console.error(err);
+        if (req.accepts('json')) return res.status(500).json({ error: 'Error adding vehicle' });
         res.status(500).send('Error adding vehicle');
+    }
+});
+
+app.post('/api/vehicles/:id', async (req, res) => {
+    try {
+        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status } = req.body;
+        const vehicle = await Vehicle.findByIdAndUpdate(req.params.id, {
+            truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status
+        }, { new: true });
+        if (req.accepts('json')) return res.json(vehicle);
+        res.redirect('/vehicles');
+    } catch (err) {
+        console.error(err);
+        if (req.accepts('json')) return res.status(500).json({ error: 'Error updating vehicle' });
+        res.status(500).send('Error updating vehicle');
     }
 });
 
@@ -258,9 +284,21 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
         });
         await newRequest.save();
 
+        // Automatically create a Task for the dashboard
+        const vehicle = await Vehicle.findById(vehicleId);
+        const taskTitle = vehicle ? `Maintenance Request - ${vehicle.truckNumber}` : `Maintenance Request - ${title}`;
+        await Task.create({
+            title: taskTitle,
+            description: description,
+            category: 'maintenance',
+            referenceId: newRequest._id
+        });
+
+        if (req.accepts('json')) return res.json(newRequest);
         res.redirect('/dashboard');
     } catch (err) {
         console.error(err);
+        if (req.accepts('json')) return res.status(500).json({ error: 'Error submitting maintenance request' });
         res.status(500).send('Error submitting maintenance request');
     }
 });
@@ -344,16 +382,30 @@ app.get('/walkthrough/weekend/new', async (req, res) => {
 
 app.post('/api/walkthrough/weekend', async (req, res) => {
     try {
-        const { vehicleId, mileage, sideMirrors, bodyDamage, maintenanceNote, notes } = req.body;
+        const { vehicleId, mileage, windscreenStatus, windscreenNotes, wipersStatus, wipersNotes, mirrorsStatus, mirrorsNotes, tiresStatus, tiresNotes, bodyDamage, maintenanceNote, notes } = req.body;
+        
+        let compiledNotes = maintenanceNote || '';
+        
+        const assetChecks = {
+            windscreen: { status: windscreenStatus, notes: windscreenNotes },
+            wipers: { status: wipersStatus, notes: wipersNotes },
+            mirrors: { status: mirrorsStatus, notes: mirrorsNotes },
+            tires: { status: tiresStatus, notes: tiresNotes }
+        };
+
+        // Automatically append any failed asset checks to the maintenance note
+        for (const [key, check] of Object.entries(assetChecks)) {
+            if (check.status === 'fail' && check.notes) {
+                compiledNotes += `\n[${key.toUpperCase()} FAIL]: ${check.notes}`;
+            }
+        }
+        
         const walkthrough = new WeekendWalkthrough({
             vehicleId,
             mileage: Number(mileage),
-            checks: {
-                sideMirrors: sideMirrors === 'true',
-                bodyDamage: bodyDamage || 'None'
-            },
-            maintenanceNote,
-            notes
+            assetChecks,
+            maintenanceNote: compiledNotes.trim(),
+            notes: notes ? notes + `\nBody Damage: ${bodyDamage || 'None'}` : `Body Damage: ${bodyDamage || 'None'}`
         });
         await walkthrough.save();
 
@@ -401,6 +453,39 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Error submitting weekend walkthrough');
+    }
+});
+
+// --- Next.js Frontend APIs ---
+app.get('/api/dashboard-data', async (req, res) => {
+    try {
+        const tasks = await Task.find().sort('-createdAt').limit(20);
+        const vehicles = await Vehicle.find();
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const maintenanceAlerts = vehicles.filter(v => v.status === 'active' && (!v.lastOilChange || v.lastOilChange < ninetyDaysAgo));
+        res.json({ tasks, maintenanceAlerts, vehicles });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/vehicles-data', async (req, res) => {
+    try {
+        const vehicles = await Vehicle.find().sort('routeNumber');
+        res.json(vehicles);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/mmr-data', async (req, res) => {
+    try {
+        // We will just fetch weekend walkthroughs to simulate MMR records
+        const records = await WeekendWalkthrough.find().populate('vehicleId').sort('-createdAt');
+        res.json(records);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const vehicleSchema = new mongoose.Schema({
     routeNumber: { type: String, required: true },
     truckNumber: { type: String, required: true },
-    status: { type: String, enum: ['active', 'maintenance', 'inactive'], default: 'active' },
+    status: { type: String, default: 'Active' },
     vin: { type: String },
     licensePlate: { type: String },
     makeModel: { type: String },

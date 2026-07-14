@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: #0B1220;
+    --ink-2: #141D31;
+    --ink-3: #1D2740;
+    --canvas: #F4F5F8;
+    --surface: #FFFFFF;
+    --signal: #2453FF;
+    --signal-dim: #EAEFFF;
+    --amber: #B45F06;
+    --amber-bg: #FDF1DE;
+    --green: #0F7A3D;
+    --green-bg: #E7F5EC;
+    --red: #C22B2B;
+    --red-bg: #FBEAEA;
+    --steel: #5B6478;
+    --steel-light: #8B93A6;
+    --hairline: #E4E7ED;
+    --hairline-dark: #2A3450;
+    
+    /* Shadcn UI required tokens */
+    --background: 220 16% 96%; /* --canvas roughly */
+    --foreground: 220 49% 8%; /* --ink roughly */
+    --card: 0 0% 100%;
+    --card-foreground: 220 49% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 49% 8%;
+    --primary: 227 100% 57%; /* --signal */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 49% 8%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 14% 41%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 220 49% 8%;
+    --destructive: 0 65% 46%; /* --red */
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%; /* --hairline */
+    --input: 214 32% 91%;
+    --ring: 227 100% 57%; /* --signal */
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-[var(--canvas)] text-[var(--ink)] font-sans antialiased;
+  }
+}

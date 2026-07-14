@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "concurrently \"npm run watch:css\" \"nodemon app.js\"",
-    "build:css": "npx @tailwindcss/cli -i ./public/css/input.css -o ./public/css/output.css --minify",
-    "watch:css": "npx @tailwindcss/cli -i ./public/css/input.css -o ./public/css/output.css --watch"
+    "dev": "concurrently \"nodemon app.js\" \"cd frontend && npx next dev -p 3001\"",
+    "build:frontend": "cd frontend && npm run build && xcopy /E /I /Y out ..\\public",
+    "build": "npm run build:frontend"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +16,7 @@
   "dependencies": {
     "archiver": "^8.0.0",
     "bcrypt": "^6.0.0",
+    "bwip-js": "^4.11.2",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
     "csv-parse": "^7.0.1",

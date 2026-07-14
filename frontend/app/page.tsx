@@ -46,8 +46,9 @@ export default function Dashboard() {
     return <div className="flex items-center justify-center py-20 text-[var(--steel)]">Loading dashboard...</div>;
   }
 
-  const { tasks, maintenanceAlerts, vehicles } = data;
+  const { tasks, maintenanceAlerts, registrationAlerts, vehicles } = data;
   const dueForOil = maintenanceAlerts || [];
+  const dueForRegistration = registrationAlerts || [];
   
   // Calculate stats
   const totalVehicles = vehicles.length;
@@ -58,9 +59,9 @@ export default function Dashboard() {
   return (
     <div>
       <PageHeader
-        eyebrow="Dispatch"
-        title="Tonight's overview"
-        subtitle="Yard closes 9:00 PM"
+        eyebrow="Dashboard"
+        title="Fleet Overview"
+        subtitle="Current status of operations"
         right={
           <>
             <Btn variant="ghost" icon={Moon} onClick={() => router.push("/evening")}>Evening walkthrough</Btn>
@@ -106,6 +107,27 @@ export default function Dashboard() {
                 <div key={t._id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white">
                   <ManifestTag route={t.routeNumber} id={t.truckNumber} />
                   <span className="text-xs font-mono text-[var(--amber)]">Service Due</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dueForRegistration.length > 0 && (
+        <div className="rounded-xl p-5 mb-6 border flex gap-4 bg-[#fef2f2] border-[#fecaca]">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-[#ef4444]" />
+          <div className="flex-1">
+            <div className="font-semibold text-sm mb-2 text-[#b91c1c]">
+              {dueForRegistration.length} vehicles have expiring registrations
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {dueForRegistration.map((t: any) => (
+                <div key={t._id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-[#fecaca]">
+                  <ManifestTag route={t.routeNumber} id={t.truckNumber} />
+                  <span className="text-xs font-mono text-[#ef4444]">
+                    Exp: {new Date(t.registrationExpiry).toLocaleDateString()}
+                  </span>
                 </div>
               ))}
             </div>

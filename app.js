@@ -225,12 +225,45 @@ app.get('/vehicles', async (req, res) => {
     res.render('pages/vehicles', { vehicles });
 });
 
-app.post('/api/vehicles', async (req, res) => {
+const uploadVehicleDocs = multer({ dest: 'uploads/' });
+
+const handleCloudinaryUpload = async (file) => {
+    const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'fleetMan_vehicles'
+    });
+    fs.unlinkSync(file.path);
+    return result.secure_url;
+};
+
+app.post('/api/vehicles', uploadVehicleDocs.fields([
+    { name: 'registration', maxCount: 1 },
+    { name: 'dotInspection', maxCount: 1 },
+    { name: 'insurance', maxCount: 1 }
+]), async (req, res) => {
     try {
-        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status } = req.body;
-        const vehicle = new Vehicle({
+        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry } = req.body;
+        
+        const vehicleData = {
             truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status
-        });
+        };
+
+        if (registrationExpiry) {
+            vehicleData.registrationExpiry = new Date(registrationExpiry);
+        }
+
+        if (req.files) {
+            if (req.files['registration']) {
+                vehicleData.registrationUrl = await handleCloudinaryUpload(req.files['registration'][0]);
+            }
+            if (req.files['dotInspection']) {
+                vehicleData.dotInspectionUrl = await handleCloudinaryUpload(req.files['dotInspection'][0]);
+            }
+            if (req.files['insurance']) {
+                vehicleData.insuranceUrl = await handleCloudinaryUpload(req.files['insurance'][0]);
+            }
+        }
+
+        const vehicle = new Vehicle(vehicleData);
         await vehicle.save();
         if (req.accepts('json')) return res.json(vehicle);
         res.redirect('/vehicles');
@@ -241,12 +274,35 @@ app.post('/api/vehicles', async (req, res) => {
     }
 });
 
-app.post('/api/vehicles/:id', async (req, res) => {
+app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
+    { name: 'registration', maxCount: 1 },
+    { name: 'dotInspection', maxCount: 1 },
+    { name: 'insurance', maxCount: 1 }
+]), async (req, res) => {
     try {
-        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status } = req.body;
-        const vehicle = await Vehicle.findByIdAndUpdate(req.params.id, {
+        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry } = req.body;
+        
+        const vehicleData = {
             truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status
-        }, { new: true });
+        };
+
+        if (registrationExpiry) {
+            vehicleData.registrationExpiry = new Date(registrationExpiry);
+        }
+
+        if (req.files) {
+            if (req.files['registration']) {
+                vehicleData.registrationUrl = await handleCloudinaryUpload(req.files['registration'][0]);
+            }
+            if (req.files['dotInspection']) {
+                vehicleData.dotInspectionUrl = await handleCloudinaryUpload(req.files['dotInspection'][0]);
+            }
+            if (req.files['insurance']) {
+                vehicleData.insuranceUrl = await handleCloudinaryUpload(req.files['insurance'][0]);
+            }
+        }
+
+        const vehicle = await Vehicle.findByIdAndUpdate(req.params.id, vehicleData, { new: true });
         if (req.accepts('json')) return res.json(vehicle);
         res.redirect('/vehicles');
     } catch (err) {
@@ -464,7 +520,12 @@ app.get('/api/dashboard-data', async (req, res) => {
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         const maintenanceAlerts = vehicles.filter(v => v.status === 'active' && (!v.lastOilChange || v.lastOilChange < ninetyDaysAgo));
-        res.json({ tasks, maintenanceAlerts, vehicles });
+        
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+        const registrationAlerts = vehicles.filter(v => v.status === 'active' && v.registrationExpiry && v.registrationExpiry < thirtyDaysFromNow);
+
+        res.json({ tasks, maintenanceAlerts, registrationAlerts, vehicles });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

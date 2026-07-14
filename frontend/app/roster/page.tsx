@@ -25,7 +25,6 @@ export default function FleetRoster() {
   const handleSubmit = async (e: React.FormEvent, id?: string) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
-    const data = Object.fromEntries(formData.entries());
 
     const url = id ? `${API_BASE}/api/vehicles/${id}` : `${API_BASE}/api/vehicles`;
     
@@ -33,10 +32,9 @@ export default function FleetRoster() {
       await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(data)
+        body: formData
       });
       setIsAddOpen(false);
       setEditingTruck(null);
@@ -63,6 +61,15 @@ export default function FleetRoster() {
         { label: 'In shop', value: 'In shop' },
         { label: 'Down', value: 'Down' }
       ]} />
+      
+      <div className="mt-6 mb-4 border-t border-[var(--hairline)] pt-4">
+        <h4 className="text-sm font-semibold mb-3 text-[var(--ink)]">Documents (Optional)</h4>
+        <Input type="file" label="Registration Document" name="registration" accept="image/*,.pdf" />
+        <Input type="date" label="Registration Expiry Date" name="registrationExpiry" defaultValue={defaultValues?.registrationExpiry ? new Date(defaultValues.registrationExpiry).toISOString().split('T')[0] : ''} />
+        <Input type="file" label="DOT Inspection" name="dotInspection" accept="image/*,.pdf" />
+        <Input type="file" label="Insurance Policy" name="insurance" accept="image/*,.pdf" />
+      </div>
+
       <div className="flex justify-end gap-2 mt-6">
         <Btn type="button" variant="ghost" onClick={() => { setIsAddOpen(false); setEditingTruck(null); }}>Cancel</Btn>
         <Btn type="submit" variant="primary">Save</Btn>

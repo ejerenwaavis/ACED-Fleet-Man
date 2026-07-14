@@ -9,7 +9,11 @@ const vehicleSchema = new mongoose.Schema({
     makeModel: { type: String },
     fuelType: { type: String, enum: ['gas', 'diesel', 'electric', 'hybrid'], default: 'gas' },
     lastOilChange: { type: Date },
-    pendingMaintenance: { type: Boolean, default: false }
+    pendingMaintenance: { type: Boolean, default: false },
+    registrationUrl: { type: String },
+    dotInspectionUrl: { type: String },
+    insuranceUrl: { type: String },
+    registrationExpiry: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

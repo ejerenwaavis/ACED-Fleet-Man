@@ -4,13 +4,16 @@ import React, { useState } from "react";
 import { Truck, Moon, CalendarCheck, FileText, LayoutGrid, Search, Bell, X, Settings } from "lucide-react";
 import { NavItem } from "./UI";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "./AuthProvider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const nav = [
+  const { user } = useAuth();
+
+  const allNav = [
     { key: "/", label: "Dispatch", icon: LayoutGrid },
     { key: "/roster", label: "Fleet roster", icon: Truck },
     { key: "/evening", label: "Evening walkthrough", icon: Moon },
@@ -18,6 +21,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { key: "/records", label: "Maintenance records", icon: FileText },
     { key: "/settings", label: "Settings", icon: Settings },
   ];
+
+  const nav = allNav.filter(n => {
+    if (n.key === '/settings' && user?.role === 'driver') return false;
+    return true;
+  });
 
   if (pathname === '/onboarding' || pathname === '/login') {
     return <div className="bg-[var(--canvas)] min-h-screen">{children}</div>;
@@ -86,9 +94,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="mt-auto pt-4 border-t border-[var(--hairline-dark)]">
           <div className="flex items-center gap-2 px-2 py-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[var(--ink-3)] text-white">AE</div>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[var(--ink-3)] text-white">
+              {user?.displayName ? user.displayName.substring(0,2).toUpperCase() : 'U'}
+            </div>
             <div className="flex-1">
-              <div className="text-xs font-semibold text-white truncate max-w-[100px]">Profile</div>
+              <div className="text-xs font-semibold text-white truncate max-w-[100px]">{user?.displayName || 'Profile'}</div>
             </div>
             <button 
               onClick={async () => {

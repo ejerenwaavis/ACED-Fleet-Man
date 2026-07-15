@@ -31,6 +31,11 @@ const QRCode = require('qrcode');
 // 2. const app = express()
 const app = express();
 
+const isProd = process.env.NODE_ENV === 'production';
+const hostUrl = process.env.HOST || 'fleetman.aceddivision.com';
+const backendUrl = isProd ? `https://${hostUrl}` : 'http://localhost:3000';
+const frontendUrl = isProd ? `https://${hostUrl}` : 'http://localhost:3001';
+
 // --- Auth Bypass Middleware ---
 // Removed for production / onboarding testing
 // If you want to bypass auth again, you can uncomment this block.
@@ -75,8 +80,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 8. app.use(express.static('public'))
-app.use(express.static(path.join(__dirname, 'public')));
+// 8. Serve static files in production, else simple API response
+if (isProd) {
+    app.use(express.static(path.join(__dirname, 'public')));
+} else {
+    app.get('/', (req, res) => {
+        res.send('Server is live! Access the frontend at port 3001.');
+    });
+}
 
 // --- Authentication Setup ---
 app.use(session({
@@ -103,9 +114,9 @@ passport.deserializeUser(async (id, done) => {
 });
 
 passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID || 'dummy_id',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'dummy_secret',
-    callbackURL: '/api/auth/google/callback'
+    clientID: process.env.GOOGLE_CLIENT_ID || process.env.CLIENT_ID || 'dummy_id',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || process.env.CLIENT_SECRET || 'dummy_secret',
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || `${backendUrl}/api/auth/google/callback`
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -137,9 +148,9 @@ app.get('/api/auth/google/callback',
     (req, res) => {
         // If unassigned, go to onboarding, else go to roster
         if (req.user.role === 'unassigned') {
-            res.redirect('http://127.0.0.1:3000/onboarding');
+            res.redirect(`${frontendUrl}/onboarding`);
         } else {
-            res.redirect('http://127.0.0.1:3000/roster'); 
+            res.redirect(`${frontendUrl}/roster`); // or wherever the main app is
         }
     }
 );
@@ -405,6 +416,62 @@ app.post('/api/generate-batch', uploadBatch.single('file'), async (req, res) => 
 });
 
 // 10. API Routes
+
+// --- Global API Auth & RBAC Middleware ---
+app.use('/api', (req, res, next) => {
+    // Exclude auth, onboarding, and webhook routes from global check
+    if (req.path.startsWith('/auth') || req.path.startsWith('/onboarding')) {
+        return next();
+    }
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.role === 'unassigned') return res.status(403).json({ error: 'Forbidden: Complete onboarding first' });
+    next();
+});
+
+// --- Team Management Routes ---
+app.get('/api/users', async (req, res) => {
+    try {
+        const users = await User.find({ entityId: req.user.entityId });
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/users/:id/role', async (req, res) => {
+    try {
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+        
+        const { role } = req.body;
+        const targetUser = await User.findById(req.params.id);
+        
+        if (!targetUser || targetUser.entityId.toString() !== req.user.entityId.toString()) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Only admins can promote to admin/manager or demote admins
+        if (targetUser.role === 'admin' && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Cannot modify an admin' });
+        }
+        if ((role === 'admin' || role === 'manager') && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Only admins can grant manager privileges' });
+        }
+
+        if (role === 'remove') {
+            targetUser.entityId = undefined;
+            targetUser.role = 'unassigned';
+        } else {
+            targetUser.role = role;
+        }
+
+        await targetUser.save();
+        res.json({ success: true, user: targetUser });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // --- Fleet Management Routes ---
 const uploadVehicleDocs = multer({ dest: 'uploads/' });
@@ -812,7 +879,7 @@ app.get('/api/vehicles-data', async (req, res) => {
 app.get('/api/mmr-data', async (req, res) => {
     try {
         // We will just fetch weekend walkthroughs to simulate MMR records
-        const records = await WeekendWalkthrough.find().populate('vehicleId').sort('-createdAt');
+        const records = await WeekendWalkthrough.find({ entityId: req.user?.entityId }).populate('vehicleId').sort('-createdAt');
         res.json(records);
     } catch (err) {
         res.status(500).json({ error: err.message });

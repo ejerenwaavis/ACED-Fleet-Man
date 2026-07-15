@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const weekendWalkthroughSchema = new mongoose.Schema({
+    entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity', required: true },
     vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle', required: true },
     reporterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     date: { type: Date, default: Date.now },

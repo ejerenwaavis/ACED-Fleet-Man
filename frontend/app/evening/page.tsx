@@ -14,7 +14,7 @@ export default function EveningWalkthrough() {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://localhost:3000' : '';
+    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
     fetch(`${API_BASE}/api/vehicles-data`)
       .then(res => res.json())
       .then(d => setVehicles(d))
@@ -30,7 +30,7 @@ export default function EveningWalkthrough() {
 
   const handleSave = async (status: string) => {
     if (!selectedVehicle) return;
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://localhost:3000' : '';
+    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
     await fetch(`${API_BASE}/api/walkthrough/evening/autosave`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

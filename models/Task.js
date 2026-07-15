@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema({
+    entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity', required: true },
     title: { type: String, required: true },
     description: { type: String },
     category: { type: String, enum: ['general', 'maintenance', 'walkthrough-issue'], default: 'general' },

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const maintenanceRequestSchema = new mongoose.Schema({
+    entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity', required: true },
     title: { type: String, required: true },
     description: { type: String, required: true },
     vehicleId: { type: String, required: true },

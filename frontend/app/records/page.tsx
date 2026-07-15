@@ -8,7 +8,7 @@ export default function MaintenanceRecords() {
   const [records, setRecords] = useState([]);
 
   useEffect(() => {
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://localhost:3000' : '';
+    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
     fetch(`${API_BASE}/api/mmr-data`)
       .then(res => res.json())
       .then(d => setRecords(d))

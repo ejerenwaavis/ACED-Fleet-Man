@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const vehicleSchema = new mongoose.Schema({
+    entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity', required: true },
     routeNumber: { type: String, required: true },
     truckNumber: { type: String, required: true },
     status: { type: String, default: 'Active' },

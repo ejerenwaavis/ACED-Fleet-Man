@@ -5,7 +5,7 @@ import { Truck, Wrench, ShieldCheck, Moon, CalendarCheck, Plus, AlertTriangle, C
 import { PageHeader, Btn, StatTag, ManifestTag, Modal, Input, Select, TextArea } from "@/components/fleet/UI";
 import { useRouter } from "next/navigation";
 
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://localhost:3000' : '';
+const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
 
 export default function Dashboard() {
   const router = useRouter();

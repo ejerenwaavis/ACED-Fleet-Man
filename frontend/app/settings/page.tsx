@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Settings as SettingsIcon, Plus, Trash2, Edit2 } from "lucide-react";
 import { PageHeader, Btn, Modal, Input, Select } from "@/components/fleet/UI";
 
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://localhost:3000' : '';
+const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
 
 export default function Settings() {
   const [items, setItems] = useState<any[]>([]);

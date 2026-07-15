@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Plus, ListFilter, AlertTriangle } from "lucide-react";
+import { Plus, ListFilter, AlertTriangle, Upload } from "lucide-react";
 import { PageHeader, Btn, ManifestTag, StatusPill, OilGauge, Modal, Input, Select } from "@/components/fleet/UI";
+import { BulkUploadModal } from "@/components/fleet/BulkUploadModal";
 
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://localhost:3000' : '';
+const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
 
 export default function FleetRoster() {
   const [vehicles, setVehicles] = useState([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
 
   const fetchVehicles = () => {
@@ -86,6 +88,7 @@ export default function FleetRoster() {
         right={
           <>
             <Btn variant="ghost" icon={ListFilter}>Filters</Btn>
+            <Btn variant="ghost" icon={Upload} onClick={() => setIsBulkUploadOpen(true)}>Bulk Upload</Btn>
             <Btn variant="primary" icon={Plus} onClick={() => setIsAddOpen(true)}>Add truck</Btn>
           </>
         }
@@ -94,6 +97,12 @@ export default function FleetRoster() {
       <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Add Truck">
         <TruckForm />
       </Modal>
+
+      <BulkUploadModal 
+        isOpen={isBulkUploadOpen} 
+        onClose={() => setIsBulkUploadOpen(false)} 
+        onSuccess={fetchVehicles} 
+      />
 
       <Modal isOpen={!!editingTruck} onClose={() => setEditingTruck(null)} title="Edit Truck">
         {editingTruck && <TruckForm defaultValues={editingTruck} id={editingTruck._id} />}

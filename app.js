@@ -20,15 +20,26 @@ const WeekendWalkthrough = require('./models/WeekendWalkthrough');
 const Vehicle = require('./models/Vehicle');
 const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
+const Entity = require('./models/Entity');
 const QRCode = require('qrcode');
 
 // 2. const app = express()
 const app = express();
 
 // --- Auth Bypass Middleware ---
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     if (req.hostname === 'localhost' || req.hostname === '127.0.0.1') {
-        req.user = { id: 'mock-admin-id', name: 'Local Admin', role: 'admin' };
+        try {
+            const defaultEntity = await Entity.findOne({ name: 'Default Fleet' });
+            req.user = { 
+                id: 'mock-admin-id', 
+                name: 'Local Admin', 
+                role: 'admin',
+                entityId: defaultEntity ? defaultEntity._id : null
+            };
+        } catch (err) {
+            console.error("Auth bypass error", err);
+        }
     }
     next();
 });
@@ -64,37 +75,42 @@ mongoose.connect(process.env.MONGODBURI)
     .catch((err) => console.error('MongoDB connection error:', err));
 
 // Seed mock vehicles if none exist
-const seedVehicles = async () => {
+const seedVehicles = async (entityId) => {
     const count = await Vehicle.countDocuments();
     if (count === 0) {
         await Vehicle.insertMany([
-            { routeNumber: 'R-01', truckNumber: 'TRK-101' },
-            { routeNumber: 'R-02', truckNumber: 'TRK-102' },
-            { routeNumber: 'R-03', truckNumber: 'TRK-103' },
+            { routeNumber: 'R-01', truckNumber: 'TRK-101', entityId },
+            { routeNumber: 'R-02', truckNumber: 'TRK-102', entityId },
+            { routeNumber: 'R-03', truckNumber: 'TRK-103', entityId },
         ]);
         console.log('Seeded mock vehicles');
     }
 };
 
-const seedChecklistItems = async () => {
+const seedChecklistItems = async (entityId) => {
     const count = await ChecklistItem.countDocuments();
     if (count === 0) {
         await ChecklistItem.insertMany([
-            { name: 'Scanner device', eveningWalkthrough: true, weekendWalkthrough: false },
-            { name: 'Gas card', eveningWalkthrough: true, weekendWalkthrough: false },
-            { name: 'Batteries', eveningWalkthrough: true, weekendWalkthrough: false },
-            { name: 'Windscreen', eveningWalkthrough: false, weekendWalkthrough: true },
-            { name: 'Wipers', eveningWalkthrough: false, weekendWalkthrough: true },
-            { name: 'Mirrors', eveningWalkthrough: false, weekendWalkthrough: true },
-            { name: 'Tires', eveningWalkthrough: false, weekendWalkthrough: true },
+            { name: 'Scanner device', eveningWalkthrough: true, weekendWalkthrough: false, entityId },
+            { name: 'Gas card', eveningWalkthrough: true, weekendWalkthrough: false, entityId },
+            { name: 'Batteries', eveningWalkthrough: true, weekendWalkthrough: false, entityId },
+            { name: 'Windscreen', eveningWalkthrough: false, weekendWalkthrough: true, entityId },
+            { name: 'Wipers', eveningWalkthrough: false, weekendWalkthrough: true, entityId },
+            { name: 'Mirrors', eveningWalkthrough: false, weekendWalkthrough: true, entityId },
+            { name: 'Tires', eveningWalkthrough: false, weekendWalkthrough: true, entityId },
         ]);
         console.log('Seeded mock checklist items');
     }
 };
 
-mongoose.connection.once('open', () => {
-    seedVehicles();
-    seedChecklistItems();
+mongoose.connection.once('open', async () => {
+    let defaultEntity = await Entity.findOne({ name: 'Default Fleet' });
+    if (!defaultEntity) {
+        defaultEntity = await Entity.create({ name: 'Default Fleet', description: 'Local Development Fleet' });
+        console.log('Seeded Default Fleet Entity');
+    }
+    seedVehicles(defaultEntity._id);
+    seedChecklistItems(defaultEntity._id);
 });
 
 // Cloudinary Config
@@ -209,10 +225,10 @@ app.get('/', (req, res) => {
 });
 
 app.get('/dashboard', async (req, res) => {
-    const tasks = await Task.find().sort('-createdAt').limit(20);
+    const tasks = await Task.find({ entityId: req.user?.entityId }).sort('-createdAt').limit(20);
     
     // AI Advancement: Predictive Maintenance
-    const vehicles = await Vehicle.find({ status: 'active' });
+    const vehicles = await Vehicle.find({ status: 'active', entityId: req.user?.entityId });
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     
@@ -227,7 +243,7 @@ app.get('/dashboard', async (req, res) => {
 
 // --- Fleet Management Routes ---
 app.get('/vehicles', async (req, res) => {
-    const vehicles = await Vehicle.find().sort('routeNumber');
+    const vehicles = await Vehicle.find({ entityId: req.user?.entityId }).sort('routeNumber');
     
     // AI Advancement: Generate Barcodes for each vehicle
     for (let v of vehicles) {
@@ -265,7 +281,8 @@ app.post('/api/vehicles', uploadVehicleDocs.fields([
         const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry } = req.body;
         
         const vehicleData = {
-            truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status
+            truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status,
+            entityId: req.user?.entityId
         };
 
         if (registrationExpiry) {
@@ -304,7 +321,8 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
         const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry } = req.body;
         
         const vehicleData = {
-            truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status
+            truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status,
+            entityId: req.user?.entityId
         };
 
         if (registrationExpiry) {
@@ -333,6 +351,37 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
     }
 });
 
+app.post('/api/vehicles/bulk', async (req, res) => {
+    try {
+        const vehicles = req.body;
+        if (!Array.isArray(vehicles)) return res.status(400).json({ error: 'Expected an array of vehicles' });
+        
+        let successCount = 0;
+        let errors = [];
+        
+        for (const v of vehicles) {
+            try {
+                if (!v.truckNumber) {
+                    errors.push({ truck: 'Unknown', error: 'Missing truck number' });
+                    continue;
+                }
+                v.entityId = req.user?.entityId;
+                if (!v.routeNumber) v.routeNumber = 'Unassigned';
+                
+                await Vehicle.create(v);
+                successCount++;
+            } catch (err) {
+                errors.push({ truck: v.truckNumber, error: err.message });
+            }
+        }
+
+        res.json({ success: true, count: successCount, errors });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error processing bulk upload' });
+    }
+});
+
 // --- Maintenance Routes ---
 app.get('/maintenance/new', (req, res) => {
     res.render('pages/maintenance_new');
@@ -353,6 +402,7 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
         }
 
         const newRequest = new MaintenanceRequest({
+            entityId: req.user?.entityId,
             title,
             description,
             vehicleId,
@@ -365,6 +415,7 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
         const vehicle = await Vehicle.findById(vehicleId);
         const taskTitle = vehicle ? `Maintenance Request - ${vehicle.truckNumber}` : `Maintenance Request - ${title}`;
         await Task.create({
+            entityId: req.user?.entityId,
             title: taskTitle,
             description: description,
             category: 'maintenance',
@@ -382,7 +433,7 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
 
 // --- Evening Walkthrough Routes ---
 app.get('/walkthrough/new', async (req, res) => {
-    const vehicles = await Vehicle.find({ status: 'active' }).sort('truckNumber');
+    const vehicles = await Vehicle.find({ status: 'active', entityId: req.user?.entityId }).sort('truckNumber');
     res.render('pages/walkthrough_new', { vehicles });
 });
 
@@ -407,12 +458,13 @@ app.patch('/api/walkthrough/evening/autosave', async (req, res) => {
         endOfDay.setHours(23, 59, 59, 999);
 
         let walkthrough = await EveningWalkthrough.findOne({
+            entityId: req.user?.entityId,
             vehicleId,
             date: { $gte: startOfDay, $lte: endOfDay }
         });
 
         if (!walkthrough) {
-            walkthrough = new EveningWalkthrough({ vehicleId, date: new Date(date) });
+            walkthrough = new EveningWalkthrough({ entityId: req.user?.entityId, vehicleId, date: new Date(date) });
         }
 
         if (checks) walkthrough.checks = { ...walkthrough.checks, ...checks };
@@ -435,6 +487,7 @@ app.patch('/api/walkthrough/evening/autosave', async (req, res) => {
             
             if (missingItems.length > 0) {
                 await Task.create({
+            entityId: req.user?.entityId,
                     title: `Missing Items - ${vehicle.truckNumber}`,
                     description: missingItems.join(', '),
                     category: 'walkthrough-issue',
@@ -443,6 +496,7 @@ app.patch('/api/walkthrough/evening/autosave', async (req, res) => {
             }
             if (walkthrough.maintenanceNote) {
                 await Task.create({
+            entityId: req.user?.entityId,
                     title: `Maintenance (${routing}) - ${vehicle.truckNumber}`,
                     description: walkthrough.maintenanceNote,
                     category: 'maintenance',
@@ -460,7 +514,7 @@ app.patch('/api/walkthrough/evening/autosave', async (req, res) => {
 
 // --- Weekend Walkthrough Routes ---
 app.get('/walkthrough/weekend/new', async (req, res) => {
-    const vehicles = await Vehicle.find({ status: 'active' }).sort('truckNumber');
+    const vehicles = await Vehicle.find({ status: 'active', entityId: req.user?.entityId }).sort('truckNumber');
     res.render('pages/weekend_walkthrough_new', { vehicles });
 });
 
@@ -486,6 +540,7 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
         }
         
         const walkthrough = new WeekendWalkthrough({
+            entityId: req.user?.entityId,
             vehicleId,
             mileage: Number(mileage),
             assetChecks,
@@ -499,6 +554,7 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
         // Generate Maintenance Task if note exists
         if (maintenanceNote) {
             await Task.create({
+            entityId: req.user?.entityId,
                 title: `Maintenance (Weekend) - ${vehicle.truckNumber}`,
                 description: maintenanceNote,
                 category: 'maintenance',
@@ -516,6 +572,7 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
             const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
             const recentRepairs = await MaintenanceRequest.find({
+                entityId: req.user?.entityId,
                 vehicleId: vehicle.truckNumber,
                 status: 'completed',
                 updatedAt: { $gte: lastMonth, $lt: startOfThisMonth }
@@ -527,6 +584,7 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
             
             // Generate Task to notify admin that an MMR was auto-generated
             await Task.create({
+            entityId: req.user?.entityId,
                 title: `Auto-MMR Generated - ${vehicle.truckNumber}`,
                 description: `Mileage: ${mileage}. Repairs logged: ${repairLog || 'None'}`,
                 category: 'general',
@@ -544,7 +602,7 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
 // --- Next.js Frontend APIs ---
 app.get('/api/checklist-items', async (req, res) => {
     try {
-        const items = await ChecklistItem.find().sort('name');
+        const items = await ChecklistItem.find({ entityId: req.user?.entityId }).sort('name');
         res.json(items);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -553,7 +611,7 @@ app.get('/api/checklist-items', async (req, res) => {
 
 app.post('/api/checklist-items', async (req, res) => {
     try {
-        const item = new ChecklistItem(req.body);
+        const item = new ChecklistItem({ ...req.body, entityId: req.user?.entityId });
         await item.save();
         res.json(item);
     } catch (err) {
@@ -581,8 +639,8 @@ app.delete('/api/checklist-items/:id', async (req, res) => {
 
 app.get('/api/dashboard-data', async (req, res) => {
     try {
-        const tasks = await Task.find().sort('-createdAt').limit(20);
-        const vehicles = await Vehicle.find();
+        const tasks = await Task.find({ entityId: req.user?.entityId }).sort('-createdAt').limit(20);
+        const vehicles = await Vehicle.find({ entityId: req.user?.entityId });
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         const maintenanceAlerts = vehicles.filter(v => v.status === 'active' && (!v.lastOilChange || v.lastOilChange < ninetyDaysAgo));
@@ -599,7 +657,7 @@ app.get('/api/dashboard-data', async (req, res) => {
 
 app.get('/api/vehicles-data', async (req, res) => {
     try {
-        const vehicles = await Vehicle.find().sort('routeNumber');
+        const vehicles = await Vehicle.find({ entityId: req.user?.entityId }).sort('routeNumber');
         res.json(vehicles);
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -32,6 +32,9 @@ const QRCode = require('qrcode');
 const app = express();
 
 // --- Auth Bypass Middleware ---
+// Removed for production / onboarding testing
+// If you want to bypass auth again, you can uncomment this block.
+/*
 app.use(async (req, res, next) => {
     if (req.hostname === 'localhost' || req.hostname === '127.0.0.1') {
         try {
@@ -48,6 +51,7 @@ app.use(async (req, res, next) => {
     }
     next();
 });
+*/
 
 // 3. app.set('trust proxy', 1)
 app.set('trust proxy', 1);
@@ -236,26 +240,22 @@ app.post('/api/onboarding/resolve', async (req, res) => {
 
 // --- RBAC Middlewares ---
 const isAuthenticated = (req, res, next) => {
-    if (!process.env.GOOGLE_CLIENT_ID) {
-        // Mock auth for local test
-        req.user = { _id: 'mock-admin-id', entityId: "64a0f4435b3e6d1e345b1234", role: 'admin' };
-        return next();
-    }
     if (req.isAuthenticated()) return next();
     res.status(401).json({ error: 'Unauthorized' });
 };
 
 const isManagerOrAdmin = (req, res, next) => {
-    if (!process.env.GOOGLE_CLIENT_ID) {
-        req.user = { _id: 'mock-admin-id', entityId: "64a0f4435b3e6d1e345b1234", role: 'admin' };
-        return next();
+    if (req.isAuthenticated()) {
+        if (req.user.role === 'manager' || req.user.role === 'admin') {
+            return next();
+        }
+        return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
     }
-    if (req.isAuthenticated() && (req.user.role === 'admin' || req.user.role === 'manager')) return next();
-    res.status(403).json({ error: 'Forbidden. Requires manager or admin role.' });
+    res.status(401).json({ error: 'Unauthorized' });
 };
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODBURI)
+mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('Connected to MongoDB'))
     .catch((err) => console.error('MongoDB connection error:', err));
 

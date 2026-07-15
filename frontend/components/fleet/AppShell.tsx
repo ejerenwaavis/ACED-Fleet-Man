@@ -87,10 +87,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto pt-4 border-t border-[var(--hairline-dark)]">
           <div className="flex items-center gap-2 px-2 py-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-[var(--ink-3)] text-white">AE</div>
-            <div>
-              <div className="text-xs font-semibold text-white">Avis Ejerenwa</div>
-              <div className="text-[11px] text-[#6B7690]">Fleet manager</div>
+            <div className="flex-1">
+              <div className="text-xs font-semibold text-white truncate max-w-[100px]">Profile</div>
             </div>
+            <button 
+              onClick={async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/login';
+              }}
+              className="text-xs text-[var(--steel)] hover:text-white transition-colors"
+              title="Logout"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </div>

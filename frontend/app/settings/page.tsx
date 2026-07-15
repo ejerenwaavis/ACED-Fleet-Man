@@ -90,15 +90,24 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <PageHeader
-        eyebrow="Configuration"
-        title="Settings"
-        right={
+      <div className="flex items-center justify-between mb-6">
+        <PageHeader eyebrow="Configuration" title="Settings" />
+        <div className="flex items-center gap-3">
           <Btn variant="primary" icon={Plus} onClick={() => { setEditingItem(null); setIsModalOpen(true); }}>
             Add Checklist Item
           </Btn>
-        }
-      />
+          <Btn 
+            variant="ghost" 
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200"
+            onClick={async () => {
+              await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
+              window.location.href = '/login';
+            }}
+          >
+            Logout
+          </Btn>
+        </div>
+      </div>
 
       {requests.length > 0 && (
         <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">

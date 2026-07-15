@@ -74,6 +74,186 @@ app.use(express.urlencoded({ extended: true }));
 // 8. app.use(express.static('public'))
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Authentication Setup ---
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'fleetman_secret',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/fleet_man' }),
+    cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 day
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
+const User = require('./models/User');
+const JoinRequest = require('./models/JoinRequest');
+
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await User.findById(id);
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID || 'dummy_id',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'dummy_secret',
+    callbackURL: '/api/auth/google/callback'
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+        let user = await User.findOne({ googleId: profile.id });
+        if (user) {
+            return done(null, user);
+        }
+        
+        // CREATE NEW USER WITHOUT ENTITY
+        user = await User.create({
+            googleId: profile.id,
+            displayName: profile.displayName,
+            email: profile.emails[0].value,
+            role: 'unassigned' // No entityId yet
+        });
+
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+  }
+));
+
+// --- Auth Routes ---
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/api/auth/google/callback', 
+    passport.authenticate('google', { failureRedirect: '/login?error=true' }),
+    (req, res) => {
+        // If unassigned, go to onboarding, else go to roster
+        if (req.user.role === 'unassigned') {
+            res.redirect('http://127.0.0.1:3000/onboarding');
+        } else {
+            res.redirect('http://127.0.0.1:3000/roster'); 
+        }
+    }
+);
+
+app.post('/api/auth/logout', (req, res, next) => {
+    req.logout((err) => {
+        if (err) return next(err);
+        res.json({ success: true });
+    });
+});
+
+app.get('/api/auth/me', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.json({ user: req.user });
+    } else {
+        res.status(401).json({ error: 'Not authenticated' });
+    }
+});
+
+// --- Onboarding APIs ---
+app.post('/api/onboarding/create-entity', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.role !== 'unassigned') return res.status(400).json({ error: 'User is already assigned to an entity' });
+    
+    try {
+        const { entityName } = req.body;
+        if (!entityName) return res.status(400).json({ error: 'Entity name required' });
+
+        const newEntity = await Entity.create({ name: entityName, contactEmail: req.user.email });
+        
+        req.user.entityId = newEntity._id;
+        req.user.role = 'admin';
+        await req.user.save();
+        
+        res.json({ success: true, entity: newEntity });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/onboarding/request-join', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.role !== 'unassigned') return res.status(400).json({ error: 'User is already assigned to an entity' });
+    
+    try {
+        const { entityName } = req.body;
+        const targetEntity = await Entity.findOne({ name: entityName });
+        if (!targetEntity) return res.status(404).json({ error: 'Entity not found. Check the name and try again.' });
+        
+        // Prevent duplicate requests
+        const existing = await JoinRequest.findOne({ userId: req.user._id, entityId: targetEntity._id, status: 'pending' });
+        if (existing) return res.status(400).json({ error: 'Request already pending' });
+
+        await JoinRequest.create({ userId: req.user._id, entityId: targetEntity._id });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/onboarding/requests', async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    
+    try {
+        const requests = await JoinRequest.find({ entityId: req.user.entityId, status: 'pending' }).populate('userId', 'displayName email');
+        res.json(requests);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/onboarding/resolve', async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    
+    try {
+        const { requestId, action } = req.body; // action: 'approve' or 'reject'
+        const joinReq = await JoinRequest.findById(requestId).populate('userId');
+        
+        if (!joinReq || joinReq.entityId.toString() !== req.user.entityId.toString()) {
+            return res.status(404).json({ error: 'Request not found' });
+        }
+        
+        if (action === 'approve') {
+            joinReq.status = 'approved';
+            joinReq.userId.entityId = req.user.entityId;
+            joinReq.userId.role = 'driver'; // Default role
+            await joinReq.userId.save();
+        } else {
+            joinReq.status = 'rejected';
+        }
+        
+        await joinReq.save();
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- RBAC Middlewares ---
+const isAuthenticated = (req, res, next) => {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+        // Mock auth for local test
+        req.user = { _id: 'mock-admin-id', entityId: "64a0f4435b3e6d1e345b1234", role: 'admin' };
+        return next();
+    }
+    if (req.isAuthenticated()) return next();
+    res.status(401).json({ error: 'Unauthorized' });
+};
+
+const isManagerOrAdmin = (req, res, next) => {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+        req.user = { _id: 'mock-admin-id', entityId: "64a0f4435b3e6d1e345b1234", role: 'admin' };
+        return next();
+    }
+    if (req.isAuthenticated() && (req.user.role === 'admin' || req.user.role === 'manager')) return next();
+    res.status(403).json({ error: 'Forbidden. Requires manager or admin role.' });
+};
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODBURI)
     .then(() => console.log('Connected to MongoDB'))

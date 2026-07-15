@@ -19,6 +19,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { key: "/settings", label: "Settings", icon: Settings },
   ];
 
+  if (pathname === '/onboarding' || pathname === '/login') {
+    return <div className="bg-[var(--canvas)] min-h-screen">{children}</div>;
+  }
+
   return (
     <div className="bg-[var(--canvas)] min-h-screen flex flex-col lg:flex-row pb-[72px] lg:pb-0">
       

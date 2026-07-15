@@ -1,15 +1,25 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Plus, Trash2, Edit2 } from "lucide-react";
+import { Settings as SettingsIcon, Plus, Trash2, Edit2, Users, Check, X as XIcon } from "lucide-react";
 import { PageHeader, Btn, Modal, Input, Select } from "@/components/fleet/UI";
 
 const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
 
 export default function Settings() {
   const [items, setItems] = useState<any[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+
+  const fetchRequests = () => {
+    fetch(`${API_BASE}/api/onboarding/requests`)
+      .then(res => res.json())
+      .then(data => {
+         if(Array.isArray(data)) setRequests(data);
+      })
+      .catch(console.error);
+  };
 
   const fetchItems = () => {
     fetch(`${API_BASE}/api/checklist-items`)
@@ -20,7 +30,22 @@ export default function Settings() {
 
   useEffect(() => {
     fetchItems();
+    fetchRequests();
   }, []);
+
+  const handleResolveRequest = async (requestId: string, action: 'approve' | 'reject') => {
+    if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+    try {
+      await fetch(`${API_BASE}/api/onboarding/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action })
+      });
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +99,33 @@ export default function Settings() {
           </Btn>
         }
       />
+
+      {requests.length > 0 && (
+        <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">
+          <div className="p-5 border-b border-[var(--hairline)] bg-amber-50/30">
+            <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
+              <Users className="w-5 h-5 text-amber-600" /> Pending Team Requests
+            </h3>
+            <p className="text-sm text-[var(--steel-light)] mt-1">These users have requested to join your fleet. Review and approve to grant them driver access.</p>
+          </div>
+          <table className="w-full text-left border-collapse">
+            <tbody className="divide-y divide-[var(--hairline)]">
+              {requests.map(req => (
+                <tr key={req._id} className="hover:bg-gray-50/50">
+                  <td className="px-5 py-4">
+                    <div className="font-semibold text-[var(--ink)]">{req.userId?.displayName || 'Unknown User'}</div>
+                    <div className="text-xs text-[var(--steel)]">{req.userId?.email}</div>
+                  </td>
+                  <td className="px-5 py-4 text-right flex justify-end gap-2">
+                    <Btn variant="primary" icon={Check} onClick={() => handleResolveRequest(req._id, 'approve')}>Approve</Btn>
+                    <Btn variant="ghost" icon={XIcon} onClick={() => handleResolveRequest(req._id, 'reject')}>Deny</Btn>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6">
         <div className="p-5 border-b border-[var(--hairline)]">

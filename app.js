@@ -1,5 +1,10 @@
 require('dotenv').config();
 const express = require('express');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+
 const mongoose = require('mongoose');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -219,49 +224,9 @@ app.post('/api/generate-batch', uploadBatch.single('file'), async (req, res) => 
   }
 });
 
-// 10. All routes (GET, POST, PATCH, DELETE)
-app.get('/', (req, res) => {
-    res.render('pages/index');
-});
-
-app.get('/dashboard', async (req, res) => {
-    const tasks = await Task.find({ entityId: req.user?.entityId }).sort('-createdAt').limit(20);
-    
-    // AI Advancement: Predictive Maintenance
-    const vehicles = await Vehicle.find({ status: 'active', entityId: req.user?.entityId });
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    
-    const maintenanceAlerts = vehicles.filter(v => {
-        // Flag vehicles that have never had an oil change logged, or it's been over 90 days
-        if (!v.lastOilChange) return true; 
-        return v.lastOilChange < ninetyDaysAgo;
-    });
-
-    res.render('pages/dashboard', { tasks, maintenanceAlerts });
-});
+// 10. API Routes
 
 // --- Fleet Management Routes ---
-app.get('/vehicles', async (req, res) => {
-    const vehicles = await Vehicle.find({ entityId: req.user?.entityId }).sort('routeNumber');
-    
-    // AI Advancement: Generate Barcodes for each vehicle
-    for (let v of vehicles) {
-        const barcodeString = `V${v.truckNumber}`;
-        const pngBuffer = await bwipjs.toBuffer({
-            bcid: 'code128',
-            text: barcodeString,
-            scale: 3,
-            height: 10,
-            includetext: true,
-            textxalign: 'center',
-        });
-        v.qrCode = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-    }
-    
-    res.render('pages/vehicles', { vehicles });
-});
-
 const uploadVehicleDocs = multer({ dest: 'uploads/' });
 
 const handleCloudinaryUpload = async (file) => {
@@ -382,10 +347,31 @@ app.post('/api/vehicles/bulk', async (req, res) => {
     }
 });
 
-// --- Maintenance Routes ---
-app.get('/maintenance/new', (req, res) => {
-    res.render('pages/maintenance_new');
+
+app.get('/api/vehicles/:id/barcode', async (req, res) => {
+    try {
+        const vehicle = await Vehicle.findById(req.params.id);
+        if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+        
+        const barcodeString = `V${vehicle.truckNumber}`;
+        const pngBuffer = await bwipjs.toBuffer({
+            bcid: 'code128',
+            text: barcodeString,
+            scale: 3,
+            height: 10,
+            includetext: true,
+            textxalign: 'center',
+        });
+        
+        res.set('Content-Type', 'image/png');
+        res.send(pngBuffer);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to generate barcode' });
+    }
 });
+
+// --- Maintenance Routes ---
 
 const uploadTemp = multer({ dest: 'uploads/' });
 app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
@@ -432,22 +418,6 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
 });
 
 // --- Evening Walkthrough Routes ---
-app.get('/walkthrough/new', async (req, res) => {
-    const vehicles = await Vehicle.find({ status: 'active', entityId: req.user?.entityId }).sort('truckNumber');
-    res.render('pages/walkthrough_new', { vehicles });
-});
-
-// AI Advancement: QR Code Quick Check-In Route
-app.get('/walkthrough/quick/:id', async (req, res) => {
-    try {
-        const vehicle = await Vehicle.findById(req.params.id);
-        if (!vehicle) return res.status(404).send('Vehicle not found');
-        res.render('pages/walkthrough_quick', { vehicle });
-    } catch (err) {
-        res.status(500).send('Invalid vehicle link');
-    }
-});
-
 // Auto-save endpoint for Evening Walkthrough
 app.patch('/api/walkthrough/evening/autosave', async (req, res) => {
     try {
@@ -513,11 +483,6 @@ app.patch('/api/walkthrough/evening/autosave', async (req, res) => {
 });
 
 // --- Weekend Walkthrough Routes ---
-app.get('/walkthrough/weekend/new', async (req, res) => {
-    const vehicles = await Vehicle.find({ status: 'active', entityId: req.user?.entityId }).sort('truckNumber');
-    res.render('pages/weekend_walkthrough_new', { vehicles });
-});
-
 app.post('/api/walkthrough/weekend', async (req, res) => {
     try {
         const { vehicleId, mileage, bodyDamage, maintenanceNote, notes, ...dynamicChecks } = req.body;

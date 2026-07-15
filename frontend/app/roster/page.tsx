@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Plus, ListFilter, AlertTriangle, Upload } from "lucide-react";
+import { Plus, ListFilter, AlertTriangle, Upload, Barcode } from "lucide-react";
 import { PageHeader, Btn, ManifestTag, StatusPill, OilGauge, Modal, Input, Select } from "@/components/fleet/UI";
 import { BulkUploadModal } from "@/components/fleet/BulkUploadModal";
 
@@ -12,6 +12,7 @@ export default function FleetRoster() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
+  const [barcodeTruck, setBarcodeTruck] = useState<any>(null);
 
   const fetchVehicles = () => {
     fetch(`${API_BASE}/api/vehicles-data`)
@@ -108,6 +109,38 @@ export default function FleetRoster() {
         {editingTruck && <TruckForm defaultValues={editingTruck} id={editingTruck._id} />}
       </Modal>
 
+      <Modal isOpen={!!barcodeTruck} onClose={() => setBarcodeTruck(null)} title={`Barcode - Truck #${barcodeTruck?.truckNumber}`}>
+        {barcodeTruck && (
+          <div className="flex flex-col items-center justify-center py-6 space-y-4">
+            <div className="p-4 bg-white border border-[var(--hairline)] rounded-xl shadow-sm">
+              <img 
+                src={`${API_BASE}/api/vehicles/${barcodeTruck._id}/barcode`} 
+                alt={`Barcode for ${barcodeTruck.truckNumber}`} 
+                className="w-full h-auto object-contain"
+              />
+            </div>
+            <p className="text-sm text-[var(--steel)] text-center max-w-sm">
+              Use this barcode for quick check-ins during evening or weekend walkthroughs.
+            </p>
+            <Btn variant="primary" onClick={() => {
+               const printWindow = window.open('', '_blank');
+               printWindow?.document.write(`
+                 <html>
+                   <head><title>Print Barcode - ${barcodeTruck.truckNumber}</title></head>
+                   <body style="text-align:center; padding-top: 50px;">
+                     <img src="${API_BASE}/api/vehicles/${barcodeTruck._id}/barcode" style="max-width: 100%; height: auto;" />
+                     <script>window.onload = function() { window.print(); window.close(); }</script>
+                   </body>
+                 </html>
+               `);
+               printWindow?.document.close();
+            }}>
+              Print Barcode
+            </Btn>
+          </div>
+        )}
+      </Modal>
+
       {/* Desktop Table */}
       <div className="hidden lg:block border border-[var(--hairline)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <table className="w-full text-left border-collapse">
@@ -134,7 +167,8 @@ export default function FleetRoster() {
                   <div className="text-xs text-[var(--steel)]">{v.vin || 'No VIN'}</div>
                 </td>
                 <td className="px-5 py-4"><OilGauge pct={v.lastOilChange ? 50 : 0} /></td>
-                <td className="px-5 py-4 text-right">
+                <td className="px-5 py-4 text-right flex gap-2 justify-end">
+                  <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)}>Barcode</Btn>
                   <Btn variant="ghost" onClick={() => setEditingTruck(v)}>Edit</Btn>
                 </td>
               </tr>
@@ -164,7 +198,8 @@ export default function FleetRoster() {
                 <span className="block text-xs text-[var(--steel-light)] mb-1">Oil Life</span>
                 <OilGauge pct={v.lastOilChange ? 50 : 0} />
               </div>
-              <div className="col-span-2 flex justify-end mt-2">
+              <div className="col-span-2 flex justify-end gap-2 mt-2">
+                <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)}>Barcode</Btn>
                 <Btn variant="ghost" onClick={() => setEditingTruck(v)}>Edit</Btn>
               </div>
             </div>

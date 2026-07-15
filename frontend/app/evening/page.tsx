@@ -8,8 +8,9 @@ import { useRouter } from "next/navigation";
 export default function EveningWalkthrough() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState([]);
+  const [checklistItems, setChecklistItems] = useState<any[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState("");
-  const [checks, setChecks] = useState({ scanner: "", gasCard: "", batteries: "" });
+  const [checks, setChecks] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -17,6 +18,13 @@ export default function EveningWalkthrough() {
     fetch(`${API_BASE}/api/vehicles-data`)
       .then(res => res.json())
       .then(d => setVehicles(d))
+      .catch(console.error);
+
+    fetch(`${API_BASE}/api/checklist-items`)
+      .then(res => res.json())
+      .then(data => {
+        setChecklistItems(data.filter((item: any) => item.eveningWalkthrough));
+      })
       .catch(console.error);
   }, []);
 
@@ -37,7 +45,7 @@ export default function EveningWalkthrough() {
     if (status === 'completed') router.push('/');
   };
 
-  const CheckToggle = ({ label, field }: { label: string, field: keyof typeof checks }) => {
+  const CheckToggle = ({ label, field }: { label: string, field: string }) => {
     const val = checks[field];
     return (
       <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-[var(--surface)] border border-[var(--hairline)] rounded-xl gap-3">
@@ -89,9 +97,9 @@ export default function EveningWalkthrough() {
         {selectedVehicle && (
           <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4">
             <h3 className="font-semibold text-lg text-[var(--ink)] mb-4">Required Checks</h3>
-            <CheckToggle label="Scanner device" field="scanner" />
-            <CheckToggle label="Gas card" field="gasCard" />
-            <CheckToggle label="Batteries" field="batteries" />
+            {checklistItems.map(item => (
+               <CheckToggle key={item._id} label={item.name} field={item.name} />
+            ))}
             
             <div className="mt-6">
               <label className="block text-sm font-semibold text-[var(--ink)] mb-2">Additional Notes</label>

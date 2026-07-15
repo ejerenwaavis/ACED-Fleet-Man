@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from "react";
-import { Truck, Moon, CalendarCheck, FileText, LayoutGrid, Search, Bell, X } from "lucide-react";
+import { Truck, Moon, CalendarCheck, FileText, LayoutGrid, Search, Bell, X, Settings } from "lucide-react";
 import { NavItem } from "./UI";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -16,6 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { key: "/evening", label: "Evening walkthrough", icon: Moon },
     { key: "/weekend", label: "Weekend inspection", icon: CalendarCheck },
     { key: "/records", label: "Maintenance records", icon: FileText },
+    { key: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (

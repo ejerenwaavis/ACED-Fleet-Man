@@ -5,12 +5,7 @@ const weekendWalkthroughSchema = new mongoose.Schema({
     reporterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     date: { type: Date, default: Date.now },
     mileage: { type: Number, required: true },
-    assetChecks: {
-        windscreen: { status: { type: String, enum: ['pass', 'fail'], default: 'pass' }, notes: { type: String, default: '' } },
-        wipers: { status: { type: String, enum: ['pass', 'fail'], default: 'pass' }, notes: { type: String, default: '' } },
-        mirrors: { status: { type: String, enum: ['pass', 'fail'], default: 'pass' }, notes: { type: String, default: '' } },
-        tires: { status: { type: String, enum: ['pass', 'fail'], default: 'pass' }, notes: { type: String, default: '' } }
-    },
+    assetChecks: { type: mongoose.Schema.Types.Mixed, default: {} },
     maintenanceNote: { type: String },
     notes: { type: String }
 }, { timestamps: true });

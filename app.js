@@ -19,6 +19,7 @@ const EveningWalkthrough = require('./models/EveningWalkthrough');
 const WeekendWalkthrough = require('./models/WeekendWalkthrough');
 const Vehicle = require('./models/Vehicle');
 const Task = require('./models/Task');
+const ChecklistItem = require('./models/ChecklistItem');
 const QRCode = require('qrcode');
 
 // 2. const app = express()
@@ -74,7 +75,27 @@ const seedVehicles = async () => {
         console.log('Seeded mock vehicles');
     }
 };
-mongoose.connection.once('open', seedVehicles);
+
+const seedChecklistItems = async () => {
+    const count = await ChecklistItem.countDocuments();
+    if (count === 0) {
+        await ChecklistItem.insertMany([
+            { name: 'Scanner device', eveningWalkthrough: true, weekendWalkthrough: false },
+            { name: 'Gas card', eveningWalkthrough: true, weekendWalkthrough: false },
+            { name: 'Batteries', eveningWalkthrough: true, weekendWalkthrough: false },
+            { name: 'Windscreen', eveningWalkthrough: false, weekendWalkthrough: true },
+            { name: 'Wipers', eveningWalkthrough: false, weekendWalkthrough: true },
+            { name: 'Mirrors', eveningWalkthrough: false, weekendWalkthrough: true },
+            { name: 'Tires', eveningWalkthrough: false, weekendWalkthrough: true },
+        ]);
+        console.log('Seeded mock checklist items');
+    }
+};
+
+mongoose.connection.once('open', () => {
+    seedVehicles();
+    seedChecklistItems();
+});
 
 // Cloudinary Config
 cloudinary.config({
@@ -405,10 +426,17 @@ app.patch('/api/walkthrough/evening/autosave', async (req, res) => {
         if (status === 'completed') {
             const vehicle = await Vehicle.findById(vehicleId);
             
-            if (walkthrough.checks && (!walkthrough.checks.scanner || !walkthrough.checks.gasCard || !walkthrough.checks.batteries)) {
+            let missingItems = [];
+            if (walkthrough.checks) {
+                for (const [key, value] of Object.entries(walkthrough.checks)) {
+                    if (value === 'fail') missingItems.push(key);
+                }
+            }
+            
+            if (missingItems.length > 0) {
                 await Task.create({
                     title: `Missing Items - ${vehicle.truckNumber}`,
-                    description: `Scanner: ${walkthrough.checks.scanner}, Gas Card: ${walkthrough.checks.gasCard}, Batteries: ${walkthrough.checks.batteries}`,
+                    description: missingItems.join(', '),
                     category: 'walkthrough-issue',
                     referenceId: walkthrough._id
                 });
@@ -438,16 +466,17 @@ app.get('/walkthrough/weekend/new', async (req, res) => {
 
 app.post('/api/walkthrough/weekend', async (req, res) => {
     try {
-        const { vehicleId, mileage, windscreenStatus, windscreenNotes, wipersStatus, wipersNotes, mirrorsStatus, mirrorsNotes, tiresStatus, tiresNotes, bodyDamage, maintenanceNote, notes } = req.body;
+        const { vehicleId, mileage, bodyDamage, maintenanceNote, notes, ...dynamicChecks } = req.body;
         
         let compiledNotes = maintenanceNote || '';
         
-        const assetChecks = {
-            windscreen: { status: windscreenStatus, notes: windscreenNotes },
-            wipers: { status: wipersStatus, notes: wipersNotes },
-            mirrors: { status: mirrorsStatus, notes: mirrorsNotes },
-            tires: { status: tiresStatus, notes: tiresNotes }
-        };
+        const assetChecks = {};
+        for (const [key, value] of Object.entries(dynamicChecks)) {
+            if (key.endsWith('Status')) {
+                const item = key.replace('Status', '');
+                assetChecks[item] = { status: value, notes: dynamicChecks[`${item}Notes`] || '' };
+            }
+        }
 
         // Automatically append any failed asset checks to the maintenance note
         for (const [key, check] of Object.entries(assetChecks)) {
@@ -513,6 +542,43 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
 });
 
 // --- Next.js Frontend APIs ---
+app.get('/api/checklist-items', async (req, res) => {
+    try {
+        const items = await ChecklistItem.find().sort('name');
+        res.json(items);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/checklist-items', async (req, res) => {
+    try {
+        const item = new ChecklistItem(req.body);
+        await item.save();
+        res.json(item);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/checklist-items/:id', async (req, res) => {
+    try {
+        const item = await ChecklistItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(item);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/checklist-items/:id', async (req, res) => {
+    try {
+        await ChecklistItem.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/dashboard-data', async (req, res) => {
     try {
         const tasks = await Task.find().sort('-createdAt').limit(20);

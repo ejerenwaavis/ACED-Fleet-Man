@@ -8,18 +8,10 @@ import { useRouter } from "next/navigation";
 export default function WeekendWalkthrough() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState([]);
-  
-  const [formData, setFormData] = useState({
+  const [checklistItems, setChecklistItems] = useState<any[]>([]);
+  const [formData, setFormData] = useState<Record<string, string>>({
     vehicleId: "",
     mileage: "",
-    windscreenStatus: "",
-    windscreenNotes: "",
-    wipersStatus: "",
-    wipersNotes: "",
-    mirrorsStatus: "",
-    mirrorsNotes: "",
-    tiresStatus: "",
-    tiresNotes: "",
     bodyDamage: "",
     notes: ""
   });
@@ -30,23 +22,24 @@ export default function WeekendWalkthrough() {
       .then(res => res.json())
       .then(d => setVehicles(d))
       .catch(console.error);
+
+    fetch(`${API_BASE}/api/checklist-items`)
+      .then(res => res.json())
+      .then(data => {
+        setChecklistItems(data.filter((item: any) => item.weekendWalkthrough));
+      })
+      .catch(console.error);
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.vehicleId) return;
     
-    // We post to the existing Express endpoint
-    const searchParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(formData)) {
-      searchParams.append(key, value);
-    }
-
     const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://localhost:3000' : '';
     await fetch(`${API_BASE}/api/walkthrough/weekend`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: searchParams.toString()
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
     });
     
     router.push('/');
@@ -137,10 +130,9 @@ export default function WeekendWalkthrough() {
         {formData.vehicleId && (
           <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4">
             <h3 className="font-semibold text-lg text-[var(--ink)] mb-4">Asset Checks</h3>
-            <AssetCheck label="Windscreen" fieldPrefix="windscreen" />
-            <AssetCheck label="Wipers" fieldPrefix="wipers" />
-            <AssetCheck label="Mirrors" fieldPrefix="mirrors" />
-            <AssetCheck label="Tires" fieldPrefix="tires" />
+            {checklistItems.map(item => (
+              <AssetCheck key={item._id} label={item.name} fieldPrefix={item.name} />
+            ))}
             
             <div className="mt-6 space-y-4 bg-[var(--surface)] p-5 rounded-xl border border-[var(--hairline)]">
               <div>

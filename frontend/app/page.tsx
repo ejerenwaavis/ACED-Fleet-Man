@@ -4,18 +4,25 @@ import React, { useEffect, useState } from "react";
 import { Truck, Wrench, ShieldCheck, Moon, CalendarCheck, Plus, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 import { PageHeader, Btn, StatTag, ManifestTag, Modal, Input, Select, TextArea } from "@/components/fleet/UI";
 import { useRouter } from "next/navigation";
-
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
+import { apiFetch } from "@/lib/api";
 
 export default function Dashboard() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
 
   const fetchData = () => {
-    fetch(`${API_BASE}/api/dashboard-data`)
+    apiFetch(`/api/dashboard-data`)
       .then(res => res.json())
       .then(d => setData(d))
+      .catch(console.error);
+      
+    apiFetch(`/api/walkthrough-templates`)
+      .then(res => res.json())
+      .then(d => {
+         if (Array.isArray(d)) setTemplates(d);
+      })
       .catch(console.error);
   };
 
@@ -28,7 +35,7 @@ export default function Dashboard() {
     const formData = new FormData(e.target as HTMLFormElement);
     
     try {
-      await fetch(`${API_BASE}/api/maintenance`, {
+      await apiFetch(`/api/maintenance`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json'
@@ -63,11 +70,12 @@ export default function Dashboard() {
         title="Fleet Overview"
         subtitle="Current status of operations"
         right={
-          <>
-            <Btn variant="ghost" icon={Moon} onClick={() => router.push("/evening")}>Evening walkthrough</Btn>
-            <Btn variant="ghost" icon={CalendarCheck} onClick={() => router.push("/weekend")}>Weekend inspection</Btn>
+          <div className="flex gap-2 flex-wrap justify-end">
+            {templates.map(tmpl => (
+              <Btn key={tmpl._id} variant="ghost" icon={FileText} onClick={() => router.push(`/walkthrough?id=${tmpl._id}`)}>{tmpl.name}</Btn>
+            ))}
             <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New maintenance request</Btn>
-          </>
+          </div>
         }
       />
 

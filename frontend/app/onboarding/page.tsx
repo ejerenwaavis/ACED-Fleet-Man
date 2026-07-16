@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from "react";
-import { Plus, Search, Building2, UserPlus, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Search, Building2, UserPlus, CheckCircle2, AlertCircle, LogOut } from "lucide-react";
 import { Btn, Input, Modal } from "@/components/fleet/UI";
-
-const API_BASE = typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' ? 'http://127.0.0.1:3000' : '';
+import { getApiBase, apiFetch } from "@/lib/api";
 
 export default function OnboardingPage() {
+  const API_BASE = getApiBase();
   const [activeTab, setActiveTab] = useState<'select' | 'create' | 'join'>('select');
   const [entityName, setEntityName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function OnboardingPage() {
     setLoading(true);
     setErrorMsg("");
     try {
-      const res = await fetch(`${API_BASE}/api/onboarding/create-entity`, {
+      const res = await apiFetch(`/api/onboarding/create-entity`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entityName })
@@ -42,7 +42,7 @@ export default function OnboardingPage() {
     setLoading(true);
     setErrorMsg("");
     try {
-      const res = await fetch(`${API_BASE}/api/onboarding/request-join`, {
+      const res = await apiFetch(`/api/onboarding/request-join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entityName })
@@ -59,9 +59,18 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await apiFetch(`/api/auth/logout`, { method: 'POST' });
+      window.location.href = '/login';
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (activeTab === 'select') {
     return (
-      <div className="min-h-screen bg-[var(--canvas)] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--canvas)] flex flex-col items-center justify-center p-4">
         <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8 border border-[var(--hairline)]">
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-[var(--ink)] mb-3">Welcome to ACED Fleet Man</h1>
@@ -70,11 +79,12 @@ export default function OnboardingPage() {
 
           <div className="grid md:grid-cols-2 gap-6">
             <button 
+              type="button"
               onClick={() => setActiveTab('create')}
-              className="flex flex-col items-center p-8 border-2 border-[var(--hairline)] rounded-2xl hover:border-blue-500 hover:bg-blue-50/50 transition-all text-left text-[var(--ink)] group"
+              className="flex flex-col items-center p-8 border-2 border-[var(--hairline)] rounded-2xl hover:border-[var(--signal)] hover:bg-[var(--signal-dim)] transition-all text-left text-[var(--ink)] group"
             >
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Building2 className="w-8 h-8 text-blue-600" />
+              <div className="w-16 h-16 bg-[var(--signal-dim)] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Building2 className="w-8 h-8 text-[var(--signal)]" />
               </div>
               <h3 className="text-xl font-bold mb-2 text-center">Create a New Fleet</h3>
               <p className="text-[var(--steel)] text-center text-sm">
@@ -83,11 +93,12 @@ export default function OnboardingPage() {
             </button>
 
             <button 
+              type="button"
               onClick={() => setActiveTab('join')}
-              className="flex flex-col items-center p-8 border-2 border-[var(--hairline)] rounded-2xl hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-left text-[var(--ink)] group"
+              className="flex flex-col items-center p-8 border-2 border-[var(--hairline)] rounded-2xl hover:border-[var(--green)] hover:bg-[var(--green-bg)] transition-all text-left text-[var(--ink)] group"
             >
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <UserPlus className="w-8 h-8 text-emerald-600" />
+              <div className="w-16 h-16 bg-[var(--green-bg)] rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <UserPlus className="w-8 h-8 text-[var(--green)]" />
               </div>
               <h3 className="text-xl font-bold mb-2 text-center">Join an Existing Fleet</h3>
               <p className="text-[var(--steel)] text-center text-sm">
@@ -96,13 +107,19 @@ export default function OnboardingPage() {
             </button>
           </div>
         </div>
+        <button 
+          onClick={handleLogout}
+          className="mt-6 text-[var(--steel)] hover:text-[var(--ink)] text-sm font-medium transition-colors"
+        >
+          Not you? Log out
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--canvas)] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-[var(--hairline)] relative">
+    <div className="min-h-screen bg-[var(--canvas)] flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-[var(--hairline)]">
         <button 
           onClick={() => { setActiveTab('select'); setErrorMsg(""); setSuccessMsg(""); }}
           className="text-[var(--steel-light)] hover:text-[var(--ink)] text-sm mb-6 flex items-center font-medium"
@@ -120,14 +137,20 @@ export default function OnboardingPage() {
         </p>
 
         {errorMsg && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm flex items-start gap-2">
+          <div 
+            className="mb-4 p-3 rounded-lg text-sm flex items-start gap-2 border"
+            style={{ backgroundColor: 'var(--red-bg)', color: 'var(--red)', borderColor: 'var(--red)' }}
+          >
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-4 p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm flex items-start gap-2">
+          <div 
+            className="mb-4 p-3 rounded-lg text-sm flex items-start gap-2 border"
+            style={{ backgroundColor: 'var(--green-bg)', color: 'var(--green)', borderColor: 'var(--green)' }}
+          >
             <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -155,6 +178,12 @@ export default function OnboardingPage() {
           </Btn>
         </div>
       </div>
+      <button 
+        onClick={handleLogout}
+        className="mt-6 text-[var(--steel)] hover:text-[var(--ink)] text-sm font-medium transition-colors"
+      >
+        Not you? Log out
+      </button>
     </div>
   );
 }

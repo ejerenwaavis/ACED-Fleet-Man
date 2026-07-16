@@ -4,10 +4,10 @@ import React, { useEffect, useState } from "react";
 import { Plus, ListFilter, AlertTriangle, Upload, Barcode } from "lucide-react";
 import { PageHeader, Btn, ManifestTag, StatusPill, OilGauge, Modal, Input, Select } from "@/components/fleet/UI";
 import { BulkUploadModal } from "@/components/fleet/BulkUploadModal";
-
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
+import { getApiBase, apiFetch } from "@/lib/api";
 
 export default function FleetRoster() {
+  const API_BASE = getApiBase();
   const [vehicles, setVehicles] = useState([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
@@ -15,7 +15,7 @@ export default function FleetRoster() {
   const [barcodeTruck, setBarcodeTruck] = useState<any>(null);
 
   const fetchVehicles = () => {
-    fetch(`${API_BASE}/api/vehicles-data`)
+    apiFetch(`/api/vehicles-data`)
       .then(res => res.json())
       .then(d => setVehicles(d))
       .catch(console.error);
@@ -29,10 +29,10 @@ export default function FleetRoster() {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
 
-    const url = id ? `${API_BASE}/api/vehicles/${id}` : `${API_BASE}/api/vehicles`;
+    const url = id ? `/api/vehicles/${id}` : `/api/vehicles`;
     
     try {
-      await fetch(url, {
+      await apiFetch(url, {
         method: 'POST',
         headers: {
           'Accept': 'application/json'
@@ -114,23 +114,23 @@ export default function FleetRoster() {
           <div className="flex flex-col items-center justify-center py-6 space-y-4">
             <div className="p-4 bg-white border border-[var(--hairline)] rounded-xl shadow-sm">
               <img 
-                src={`${API_BASE}/api/vehicles/${barcodeTruck._id}/barcode`} 
+                src={`${API_BASE}/api/vehicles/${barcodeTruck._id}/barcode?t=${Date.now()}`} 
                 alt={`Barcode for ${barcodeTruck.truckNumber}`} 
                 className="w-full h-auto object-contain"
+                crossOrigin="use-credentials"
               />
             </div>
-            <p className="text-sm text-[var(--steel)] text-center max-w-sm">
-              Use this barcode for quick check-ins during evening or weekend walkthroughs.
+            <p className="text-sm text-[var(--steel-light)] text-center mt-3">
+              Use this barcode for quick check-ins during vehicle walkthroughs.
             </p>
             <Btn variant="primary" onClick={() => {
                const printWindow = window.open('', '_blank');
                printWindow?.document.write(`
                  <html>
                    <head><title>Print Barcode - ${barcodeTruck.truckNumber}</title></head>
-                   <body style="text-align:center; padding-top: 50px;">
-                     <img src="${API_BASE}/api/vehicles/${barcodeTruck._id}/barcode" style="max-width: 100%; height: auto;" />
-                     <script>window.onload = function() { window.print(); window.close(); }</script>
-                   </body>
+                    <body style="display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
+                     <img src="${API_BASE}/api/vehicles/${barcodeTruck._id}/barcode?t=${Date.now()}" crossOrigin="use-credentials" style="max-width: 100%; height: auto;" />
+                    </body> <script>window.onload = function() { window.print(); window.close(); }</script>
                  </html>
                `);
                printWindow?.document.close();

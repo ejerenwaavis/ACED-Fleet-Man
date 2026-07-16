@@ -3,15 +3,16 @@
 import React from "react";
 import { Truck } from "lucide-react";
 import { Btn } from "@/components/fleet/UI";
-
-const API_BASE = typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' ? 'http://127.0.0.1:3000' : '';
+import { getApiBase } from "@/lib/api";
 
 export default function LoginPage() {
+  const API_BASE = getApiBase();
+
   return (
     <div className="min-h-screen bg-[var(--canvas)] flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-10 border border-[var(--hairline)] flex flex-col items-center">
         
-        <div className="w-16 h-16 rounded-2xl bg-[var(--signal)] flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30">
+        <div className="w-16 h-16 rounded-2xl bg-[var(--signal)] flex items-center justify-center mb-6 shadow-xl">
           <Truck className="w-8 h-8 text-white" />
         </div>
         

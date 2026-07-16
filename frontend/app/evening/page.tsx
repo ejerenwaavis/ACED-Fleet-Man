@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Check, X, Camera, Send } from "lucide-react";
 import { PageHeader, Btn, ManifestTag } from "@/components/fleet/UI";
 import { useRouter } from "next/navigation";
+import { getApiBase, apiFetch } from "@/lib/api";
 
 export default function EveningWalkthrough() {
   const router = useRouter();
@@ -14,13 +15,13 @@ export default function EveningWalkthrough() {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
-    fetch(`${API_BASE}/api/vehicles-data`)
+    const API_BASE = getApiBase();
+    apiFetch(`/api/vehicles-data`)
       .then(res => res.json())
       .then(d => setVehicles(d))
       .catch(console.error);
 
-    fetch(`${API_BASE}/api/checklist-items`)
+    apiFetch(`/api/checklist-items`)
       .then(res => res.json())
       .then(data => {
         setChecklistItems(data.filter((item: any) => item.eveningWalkthrough));
@@ -30,8 +31,8 @@ export default function EveningWalkthrough() {
 
   const handleSave = async (status: string) => {
     if (!selectedVehicle) return;
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
-    await fetch(`${API_BASE}/api/walkthrough/evening/autosave`, {
+    const API_BASE = getApiBase();
+    await apiFetch(`/api/walkthrough/evening/autosave`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

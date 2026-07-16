@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Check, X, Send } from "lucide-react";
 import { PageHeader, Btn } from "@/components/fleet/UI";
 import { useRouter } from "next/navigation";
+import { getApiBase, apiFetch } from "@/lib/api";
 
 export default function WeekendWalkthrough() {
   const router = useRouter();
@@ -17,13 +18,13 @@ export default function WeekendWalkthrough() {
   });
 
   useEffect(() => {
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
-    fetch(`${API_BASE}/api/vehicles-data`)
+    const API_BASE = getApiBase();
+    apiFetch(`/api/vehicles-data`)
       .then(res => res.json())
       .then(d => setVehicles(d))
       .catch(console.error);
 
-    fetch(`${API_BASE}/api/checklist-items`)
+    apiFetch(`/api/checklist-items`)
       .then(res => res.json())
       .then(data => {
         setChecklistItems(data.filter((item: any) => item.weekendWalkthrough));
@@ -35,8 +36,8 @@ export default function WeekendWalkthrough() {
     e.preventDefault();
     if (!formData.vehicleId) return;
     
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
-    await fetch(`${API_BASE}/api/walkthrough/weekend`, {
+    const API_BASE = getApiBase();
+    await apiFetch(`/api/walkthrough/weekend`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)

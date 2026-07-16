@@ -5,6 +5,7 @@ import { Truck, Moon, CalendarCheck, FileText, LayoutGrid, Search, Bell, X, Sett
 import { NavItem } from "./UI";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
+import { apiFetch } from "@/lib/api";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -27,7 +28,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return true;
   });
 
-  if (pathname === '/onboarding' || pathname === '/login') {
+  const normalizedPath = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+
+  if (normalizedPath === '/onboarding' || normalizedPath === '/login') {
     return <div className="bg-[var(--canvas)] min-h-screen">{children}</div>;
   }
 
@@ -87,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               key={n.key} 
               icon={n.icon} 
               label={n.label} 
-              active={pathname === n.key} 
+              active={normalizedPath === n.key} 
               onClick={() => router.push(n.key)} 
             />
           ))}
@@ -102,7 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <button 
               onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
+                await apiFetch(`/api/auth/logout`, { method: 'POST' });
                 window.location.href = '/login';
               }}
               className="text-xs text-[var(--steel)] hover:text-white transition-colors"
@@ -142,7 +145,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
              <NavItem 
                 icon={n.icon} 
                 label={n.label} 
-                active={pathname === n.key} 
+                active={normalizedPath === n.key} 
                 onClick={() => router.push(n.key)} 
               />
           </div>

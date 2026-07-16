@@ -22,6 +22,8 @@ const { parseCsv } = require('./services/mmr/parseInput.js');
 const MaintenanceRequest = require('./models/MaintenanceRequest');
 const EveningWalkthrough = require('./models/EveningWalkthrough');
 const WeekendWalkthrough = require('./models/WeekendWalkthrough');
+const WalkthroughTemplate = require('./models/WalkthroughTemplate');
+const WalkthroughRecord = require('./models/WalkthroughRecord');
 const Vehicle = require('./models/Vehicle');
 const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
@@ -74,7 +76,10 @@ app.use(helmet({
     crossOriginOpenerPolicy: false, // Prevents HTTP console warnings on Namecheap
     originAgentCluster: false, // Prevents HTTP console warnings on Namecheap
 }));
-app.use(cors());
+app.use(cors({
+    origin: isProd ? true : ['http://localhost:3001', 'http://127.0.0.1:3001'],
+    credentials: true
+}));
 
 // 7. app.use(express.json())
 app.use(express.json());
@@ -95,7 +100,11 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/fleet_man' }),
-    cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 day
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24, // 1 day
+        sameSite: 'lax',
+        secure: isProd
+    }
 }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -524,6 +533,37 @@ app.post('/api/vehicles', uploadVehicleDocs.fields([
     }
 });
 
+app.post('/api/vehicles/bulk', async (req, res) => {
+    try {
+        const vehicles = req.body;
+        if (!Array.isArray(vehicles)) return res.status(400).json({ error: 'Expected an array of vehicles' });
+        
+        let successCount = 0;
+        let errors = [];
+        
+        for (const v of vehicles) {
+            try {
+                if (!v.truckNumber) {
+                    errors.push({ truck: 'Unknown', error: 'Missing truck number' });
+                    continue;
+                }
+                v.entityId = req.user?.entityId;
+                if (!v.routeNumber) v.routeNumber = 'Unassigned';
+                
+                await Vehicle.create(v);
+                successCount++;
+            } catch (err) {
+                errors.push({ truck: v.truckNumber, error: err.message });
+            }
+        }
+
+        res.json({ success: true, count: successCount, errors });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error processing bulk upload' });
+    }
+});
+
 app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
     { name: 'registration', maxCount: 1 },
     { name: 'dotInspection', maxCount: 1 },
@@ -563,37 +603,6 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
     }
 });
 
-app.post('/api/vehicles/bulk', async (req, res) => {
-    try {
-        const vehicles = req.body;
-        if (!Array.isArray(vehicles)) return res.status(400).json({ error: 'Expected an array of vehicles' });
-        
-        let successCount = 0;
-        let errors = [];
-        
-        for (const v of vehicles) {
-            try {
-                if (!v.truckNumber) {
-                    errors.push({ truck: 'Unknown', error: 'Missing truck number' });
-                    continue;
-                }
-                v.entityId = req.user?.entityId;
-                if (!v.routeNumber) v.routeNumber = 'Unassigned';
-                
-                await Vehicle.create(v);
-                successCount++;
-            } catch (err) {
-                errors.push({ truck: v.truckNumber, error: err.message });
-            }
-        }
-
-        res.json({ success: true, count: successCount, errors });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error processing bulk upload' });
-    }
-});
-
 
 app.get('/api/vehicles/:id/barcode', async (req, res) => {
     try {
@@ -608,6 +617,7 @@ app.get('/api/vehicles/:id/barcode', async (req, res) => {
             height: 10,
             includetext: true,
             textxalign: 'center',
+            textyoffset: -5,
         });
         
         res.set('Content-Type', 'image/png');
@@ -661,6 +671,105 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
         console.error(err);
         if (req.accepts('json')) return res.status(500).json({ error: 'Error submitting maintenance request' });
         res.status(500).send('Error submitting maintenance request');
+    }
+});
+// --- Dynamic Walkthrough Routes ---
+
+// Get all active templates for an entity
+app.get('/api/walkthrough-templates', async (req, res) => {
+    try {
+        const templates = await WalkthroughTemplate.find({ entityId: req.user?.entityId, isActive: true });
+        res.json(templates);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+});
+
+// Get a single template
+app.get('/api/walkthrough-templates/:id', async (req, res) => {
+    try {
+        const template = await WalkthroughTemplate.findOne({ _id: req.params.id, entityId: req.user?.entityId });
+        if (!template) return res.status(404).json({ error: 'Template not found' });
+        res.json(template);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch template' });
+    }
+});
+
+// Create or Update a template
+app.post('/api/walkthrough-templates', async (req, res) => {
+    try {
+        const { _id, name, frequency, description, items, isActive } = req.body;
+        
+        const templateData = {
+            entityId: req.user?.entityId,
+            name, frequency, description, items, isActive: isActive !== false
+        };
+
+        let template;
+        if (_id) {
+            template = await WalkthroughTemplate.findOneAndUpdate({ _id, entityId: req.user?.entityId }, templateData, { new: true });
+        } else {
+            template = new WalkthroughTemplate(templateData);
+            await template.save();
+        }
+        res.json(template);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to save template' });
+    }
+});
+
+// Delete a template (soft delete)
+app.delete('/api/walkthrough-templates/:id', async (req, res) => {
+    try {
+        await WalkthroughTemplate.findOneAndUpdate({ _id: req.params.id, entityId: req.user?.entityId }, { isActive: false });
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete template' });
+    }
+});
+
+// Submit a walkthrough record
+app.post('/api/walkthrough-records', async (req, res) => {
+    try {
+        const { templateId, vehicleId, date, mileage, data, maintenanceNote } = req.body;
+        
+        const record = new WalkthroughRecord({
+            entityId: req.user?.entityId,
+            templateId,
+            vehicleId,
+            reporterId: req.user?._id,
+            date: date ? new Date(date) : new Date(),
+            mileage,
+            data,
+            maintenanceNote
+        });
+
+        await record.save();
+        res.json(record);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to submit walkthrough' });
+    }
+});
+
+// Get walkthrough records
+app.get('/api/walkthrough-records', async (req, res) => {
+    try {
+        const records = await WalkthroughRecord.find({ entityId: req.user?.entityId })
+            .populate('templateId')
+            .populate('vehicleId')
+            .populate('reporterId', 'displayName email')
+            .sort('-createdAt')
+            .limit(100);
+        res.json(records);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch records' });
     }
 });
 

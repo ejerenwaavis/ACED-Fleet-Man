@@ -736,7 +736,26 @@ app.delete('/api/walkthrough-templates/:id', async (req, res) => {
 // Submit a walkthrough record
 app.post('/api/walkthrough-records', async (req, res) => {
     try {
-        const { templateId, vehicleId, date, mileage, data, maintenanceNote } = req.body;
+        const { templateId, vehicleId, date, mileage, data, maintenanceNote, status } = req.body;
+        
+        if (status === 'draft') {
+            let record = await WalkthroughRecord.findOne({
+                entityId: req.user?.entityId,
+                templateId,
+                vehicleId,
+                reporterId: req.user?._id,
+                status: 'draft'
+            });
+
+            if (record) {
+                record.data = data;
+                record.mileage = mileage;
+                record.maintenanceNote = maintenanceNote;
+                record.date = date ? new Date(date) : new Date();
+                await record.save();
+                return res.json(record);
+            }
+        }
         
         const record = new WalkthroughRecord({
             entityId: req.user?.entityId,
@@ -746,7 +765,8 @@ app.post('/api/walkthrough-records', async (req, res) => {
             date: date ? new Date(date) : new Date(),
             mileage,
             data,
-            maintenanceNote
+            maintenanceNote,
+            status: status || 'completed'
         });
 
         await record.save();
@@ -754,6 +774,28 @@ app.post('/api/walkthrough-records', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to submit walkthrough' });
+    }
+});
+
+app.get('/api/walkthrough-records/draft', async (req, res) => {
+    try {
+        const { templateId, vehicleId } = req.query;
+        if (!templateId || !vehicleId) {
+            return res.status(400).json({ error: 'Missing parameters' });
+        }
+        
+        const record = await WalkthroughRecord.findOne({
+            entityId: req.user?.entityId,
+            templateId,
+            vehicleId,
+            reporterId: req.user?._id,
+            status: 'draft'
+        });
+        
+        res.json({ draft: record });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch draft' });
     }
 });
 

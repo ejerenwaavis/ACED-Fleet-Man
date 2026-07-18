@@ -28,6 +28,7 @@ const Vehicle = require('./models/Vehicle');
 const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
 const Entity = require('./models/Entity');
+const Partnership = require('./models/Partnership');
 const QRCode = require('qrcode');
 
 // 2. const app = express()
@@ -185,10 +186,11 @@ app.post('/api/onboarding/create-entity', async (req, res) => {
     if (req.user.role !== 'unassigned') return res.status(400).json({ error: 'User is already assigned to an entity' });
     
     try {
-        const { entityName } = req.body;
+        const { entityName, entityType } = req.body;
         if (!entityName) return res.status(400).json({ error: 'Entity name required' });
+        if (!entityType || !['dsp', 'msp'].includes(entityType)) return res.status(400).json({ error: 'Valid entityType (dsp or msp) required' });
 
-        const newEntity = await Entity.create({ name: entityName, contactEmail: req.user.email });
+        const newEntity = await Entity.create({ name: entityName, entityType, contactEmail: req.user.email });
         
         req.user.entityId = newEntity._id;
         req.user.role = 'admin';
@@ -205,9 +207,12 @@ app.post('/api/onboarding/request-join', async (req, res) => {
     if (req.user.role !== 'unassigned') return res.status(400).json({ error: 'User is already assigned to an entity' });
     
     try {
-        const { entityName } = req.body;
+        const { entityName, entityType } = req.body;
         const targetEntity = await Entity.findOne({ name: entityName });
         if (!targetEntity) return res.status(404).json({ error: 'Entity not found. Check the name and try again.' });
+        if (entityType && targetEntity.entityType !== entityType) {
+            return res.status(400).json({ error: `You selected ${entityType.toUpperCase()}, but the entity you are trying to join is a ${targetEntity.entityType.toUpperCase()}.` });
+        }
         
         // Prevent duplicate requests
         const existing = await JoinRequest.findOne({ userId: req.user._id, entityId: targetEntity._id, status: 'pending' });
@@ -243,9 +248,10 @@ app.post('/api/onboarding/resolve', async (req, res) => {
         }
         
         if (action === 'approve') {
+            const targetEntity = await Entity.findById(req.user.entityId);
             joinReq.status = 'approved';
             joinReq.userId.entityId = req.user.entityId;
-            joinReq.userId.role = 'driver'; // Default role
+            joinReq.userId.role = targetEntity.entityType === 'msp' ? 'mechanic' : 'driver'; // Default role based on entity type
             await joinReq.userId.save();
         } else {
             joinReq.status = 'rejected';
@@ -273,6 +279,122 @@ const isManagerOrAdmin = (req, res, next) => {
     }
     res.status(401).json({ error: 'Unauthorized' });
 };
+
+// --- Partnership APIs ---
+app.get('/api/msp/directory', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const msps = await Entity.find({ entityType: 'msp', listedInDirectory: true })
+            .select('name description contactEmail contactPhone specialties serviceRadius isVerified');
+        res.json(msps);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/partnerships', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const { targetEntityId } = req.body;
+        const myEntityId = req.user.entityId;
+        if (!targetEntityId || !myEntityId) return res.status(400).json({ error: 'Missing entity ID' });
+
+        const myEntity = await Entity.findById(myEntityId);
+        const targetEntity = await Entity.findById(targetEntityId);
+        if (!myEntity || !targetEntity) return res.status(404).json({ error: 'Entity not found' });
+
+        if (myEntity.entityType === targetEntity.entityType) {
+            return res.status(400).json({ error: 'Partnerships must be between a DSP and an MSP' });
+        }
+
+        const dspEntityId = myEntity.entityType === 'dsp' ? myEntity._id : targetEntity._id;
+        const mspEntityId = myEntity.entityType === 'msp' ? myEntity._id : targetEntity._id;
+
+        const existing = await Partnership.findOne({ dspEntityId, mspEntityId });
+        if (existing) return res.status(400).json({ error: 'Partnership already exists or is pending' });
+
+        const p = await Partnership.create({
+            dspEntityId,
+            mspEntityId,
+            status: 'requested',
+            initiatedBy: myEntityId
+        });
+        res.json({ success: true, partnership: p });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/partnerships', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const myEntityId = req.user.entityId;
+        const myEntity = await Entity.findById(myEntityId);
+        
+        let query = {};
+        if (myEntity.entityType === 'dsp') query.dspEntityId = myEntityId;
+        else query.mspEntityId = myEntityId;
+
+        const partnerships = await Partnership.find(query)
+            .populate('dspEntityId', 'name contactEmail')
+            .populate('mspEntityId', 'name contactEmail specialties isVerified')
+            .populate('initiatedBy', 'name');
+            
+        res.json(partnerships);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/partnerships/:id/respond', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const { action } = req.body; // 'accept' | 'reject'
+        const p = await Partnership.findById(req.params.id);
+        if (!p) return res.status(404).json({ error: 'Partnership not found' });
+
+        if (p.initiatedBy.toString() === req.user.entityId.toString()) {
+            return res.status(403).json({ error: 'You cannot respond to a request you initiated' });
+        }
+
+        if (p.dspEntityId.toString() !== req.user.entityId.toString() && p.mspEntityId.toString() !== req.user.entityId.toString()) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        if (action === 'accept') p.status = 'active';
+        else if (action === 'reject') p.status = 'terminated';
+        else return res.status(400).json({ error: 'Invalid action' });
+
+        p.respondedBy = req.user._id;
+        p.respondedAt = new Date();
+        await p.save();
+        res.json({ success: true, partnership: p });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/partnerships/:id', isAuthenticated, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const { status, terms, defaultAutoAssign } = req.body;
+        const p = await Partnership.findById(req.params.id);
+        if (!p) return res.status(404).json({ error: 'Partnership not found' });
+
+        if (p.dspEntityId.toString() !== req.user.entityId.toString() && p.mspEntityId.toString() !== req.user.entityId.toString()) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        if (status && ['suspended', 'active', 'terminated'].includes(status)) {
+            p.status = status;
+        }
+        if (terms !== undefined) p.terms = terms;
+        if (defaultAutoAssign !== undefined && req.user.entityId.toString() === p.dspEntityId.toString()) {
+            p.defaultAutoAssign = defaultAutoAssign;
+        }
+
+        await p.save();
+        res.json({ success: true, partnership: p });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)

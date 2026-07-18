@@ -4,11 +4,11 @@ This file serves as a memory state and handoff document for AI assistants workin
 
 ## The Golden Rules (ACED Division Build Spec)
 - **Target Host:** Namecheap cPanel — CloudLinux Passenger (Node.js).
-- **Architecture:** Single-folder, full-stack Node.js application. NO separate frontend/backend split. NO Vite/React/Next.
+- **Architecture:** Express/Mongoose API in `app.js` (single Node entry point, Passenger-compatible) serving a Next.js 14 frontend in `/frontend`. Legacy EJS views in `/views` are being phased out — see EJS Removal Plan for status; do not extend EJS with new pages.
 - **Entry Point:** `app.js` is the single entry point. Passenger calls it directly.
 - **Proxy:** `app.set('trust proxy', 1)` is CRITICAL and non-negotiable.
 - **Rate Limiters:** DO NOT ADD RATE LIMITERS. They break behind Namecheap's proxy. Security is handled via Helmet, CORS, JWT, 2FA, and bcrypt.
-- **Views:** EJS templates only (`/views`). Tailwind CSS is loaded via Play CDN in the `header.ejs`. The theme is **Blue & White**.
+- **Views:** Next.js (`/frontend`) is the active UI. Legacy EJS templates (`/views`, Tailwind via Play CDN, Blue & White theme) remain for now but are frozen — no new EJS pages, no EJS feature work. See EJS Removal Plan for the retirement process.
 - **Data Layer:** MongoDB via Mongoose (`/models`).
 - **Static Assets:** Served entirely from `/public`.
 - **.htaccess:** Managed by Passenger. Ignored in `.gitignore`.

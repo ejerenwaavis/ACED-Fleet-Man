@@ -9,6 +9,7 @@ export default function OnboardingPage() {
   const API_BASE = getApiBase();
   const [activeTab, setActiveTab] = useState<'select' | 'create' | 'join'>('select');
   const [entityName, setEntityName] = useState("");
+  const [entityType, setEntityType] = useState<'dsp' | 'msp'>('dsp');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -21,7 +22,7 @@ export default function OnboardingPage() {
       const res = await apiFetch(`/api/onboarding/create-entity`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entityName })
+        body: JSON.stringify({ entityName, entityType })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -45,7 +46,7 @@ export default function OnboardingPage() {
       const res = await apiFetch(`/api/onboarding/request-join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entityName })
+        body: JSON.stringify({ entityName, entityType })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -157,6 +158,20 @@ export default function OnboardingPage() {
         )}
 
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-[var(--ink)] mb-2">I am representing a:</label>
+            <div className="flex flex-col gap-2 mb-4">
+              <label className="flex items-center gap-2 text-sm cursor-pointer bg-[var(--surface)] p-3 rounded-lg border border-[var(--hairline)] hover:border-[var(--signal)]">
+                <input type="radio" name="entityType" value="dsp" checked={entityType === 'dsp'} onChange={() => setEntityType('dsp')} className="w-4 h-4 text-[var(--signal)]" />
+                Delivery Service Provider (DSP)
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer bg-[var(--surface)] p-3 rounded-lg border border-[var(--hairline)] hover:border-[var(--signal)]">
+                <input type="radio" name="entityType" value="msp" checked={entityType === 'msp'} onChange={() => setEntityType('msp')} className="w-4 h-4 text-[var(--signal)]" />
+                Mechanic Repair Shop (MSP)
+              </label>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-semibold text-[var(--ink)] mb-1.5">Fleet / Entity Name</label>
             <Input 

@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
     displayName: { type: String },
     email: { type: String, required: true, unique: true },
     password: { type: String }, // Optional if using Google Auth
-    role: { type: String, enum: ['admin', 'manager', 'driver', 'unassigned'], default: 'unassigned' }
+    role: { type: String, enum: ['admin', 'manager', 'driver', 'mechanic', 'unassigned'], default: 'unassigned' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from "react";
-import { Truck, ClipboardList, FileText, LayoutGrid, Search, Bell, X, Settings } from "lucide-react";
+import { Truck, ClipboardList, FileText, LayoutGrid, Search, Bell, X, Settings, Wrench, Compass, Handshake, Menu } from "lucide-react";
 import { NavItem } from "./UI";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
@@ -11,19 +11,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
 
   const { user } = useAuth();
 
   const allNav = [
     { key: "/", label: "Dispatch", icon: LayoutGrid },
     { key: "/roster", label: "Fleet roster", icon: Truck },
+    { key: "/directory", label: "Network", icon: Compass },
+    { key: "/partnerships", label: "Partnerships", icon: Handshake },
+    { key: "/mechanic", label: "Job Board", icon: Wrench },
     { key: "/walkthroughs", label: "Walkthroughs", icon: ClipboardList },
     { key: "/records", label: "Maintenance records", icon: FileText },
     { key: "/settings", label: "Settings", icon: Settings },
   ];
 
   const nav = allNav.filter(n => {
-    if (n.key === '/settings' && user?.role === 'driver') return false;
+    const role = user?.role;
+    const entityType = user?.entityId?.entityType;
+
+    if (n.key === '/settings' && role === 'driver') return false;
+
+    if (entityType === 'msp') {
+      if (['/', '/roster', '/directory', '/walkthroughs', '/records'].includes(n.key)) return false;
+    } else {
+      if (n.key === '/mechanic') return false;
+    }
+
     return true;
   });
 
@@ -139,17 +153,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Bottom Tab Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-[var(--ink)] border-t border-[var(--hairline-dark)] flex items-center justify-around px-2 z-40 pb-safe">
-        {nav.map(n => (
+        {nav.slice(0, 4).map(n => (
           <div key={n.key} className="flex-1 px-1">
              <NavItem 
                 icon={n.icon} 
                 label={n.label} 
                 active={normalizedPath === n.key} 
-                onClick={() => router.push(n.key)} 
+                onClick={() => { setMobileMoreOpen(false); router.push(n.key); }} 
               />
           </div>
         ))}
+        {nav.length > 4 && (
+          <div className="flex-1 px-1">
+             <NavItem 
+                icon={Menu} 
+                label="More" 
+                active={mobileMoreOpen} 
+                onClick={() => setMobileMoreOpen(!mobileMoreOpen)} 
+              />
+          </div>
+        )}
       </div>
+
+      {/* Mobile More Menu */}
+      {mobileMoreOpen && (
+        <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setMobileMoreOpen(false)}>
+          <div className="absolute bottom-[72px] left-0 right-0 bg-[var(--ink)] rounded-t-2xl p-4 border-t border-[var(--hairline-dark)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-[var(--hairline-dark)]">
+              <h3 className="font-semibold text-white">More Options</h3>
+              <button onClick={() => setMobileMoreOpen(false)}><X className="w-5 h-5 text-[var(--steel)]" /></button>
+            </div>
+            <div className="flex flex-col gap-1">
+              {nav.slice(4).map(n => (
+                <button
+                  key={n.key}
+                  onClick={() => { setMobileMoreOpen(false); router.push(n.key); }}
+                  className="flex items-center gap-3 w-full p-3 rounded-lg text-white"
+                  style={{ background: normalizedPath === n.key ? "var(--ink-3)" : "transparent" }}
+                >
+                  <n.icon className="w-5 h-5" style={{ color: normalizedPath === n.key ? "var(--signal)" : "#6B7690" }} />
+                  <span className="font-medium text-sm">{n.label}</span>
+                </button>
+              ))}
+              <div className="mt-4 pt-4 border-t border-[var(--hairline-dark)]">
+                 <button 
+                  onClick={async () => {
+                    await apiFetch(`/api/auth/logout`, { method: 'POST' });
+                    window.location.href = '/login';
+                  }}
+                  className="w-full py-3 text-center rounded-lg bg-[var(--ink-3)] text-white font-semibold text-sm"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
     </div>
   );

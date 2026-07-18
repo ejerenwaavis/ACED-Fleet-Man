@@ -6,9 +6,33 @@ const maintenanceRequestSchema = new mongoose.Schema({
     description: { type: String, required: true },
     vehicleId: { type: String, required: true },
     reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    status: { type: String, enum: ['pending', 'in-progress', 'completed', 'cancelled'], default: 'pending' },
+    status: {
+        type: String,
+        enum: [
+            'pending',
+            'assigned',
+            'accepted',
+            'in-progress',
+            'awaiting-parts',
+            'completed',
+            'invoiced',
+            'closed',
+            'cancelled'
+        ],
+        default: 'pending'
+    },
     priority: { type: String, default: 'medium' },
     photoUrl: { type: String }, // Cloudinary URL will go here
+    
+    // MSP / Job fields
+    assignedMspEntityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity' },
+    assignedMechanicId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    acceptedAt: { type: Date },
+    completedAt: { type: Date },
+    laborHours: { type: Number },
+    laborRate: { type: Number },
+    mechanicNotes: { type: String },
+    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('MaintenanceRequest', maintenanceRequestSchema);

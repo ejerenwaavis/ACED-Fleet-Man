@@ -29,6 +29,7 @@ const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
 const Entity = require('./models/Entity');
 const Partnership = require('./models/Partnership');
+const ActivityLog = require('./models/ActivityLog');
 const QRCode = require('qrcode');
 
 // 2. const app = express()
@@ -172,9 +173,14 @@ app.post('/api/auth/logout', (req, res, next) => {
     });
 });
 
-app.get('/api/auth/me', (req, res) => {
+app.get('/api/auth/me', async (req, res) => {
     if (req.isAuthenticated()) {
-        res.json({ user: req.user });
+        try {
+            const userWithEntity = await User.findById(req.user._id).populate('entityId');
+            res.json({ user: userWithEntity });
+        } catch (err) {
+            res.status(500).json({ error: 'Failed to populate user' });
+        }
     } else {
         res.status(401).json({ error: 'Not authenticated' });
     }
@@ -391,6 +397,57 @@ app.patch('/api/partnerships/:id', isAuthenticated, async (req, res) => {
 
         await p.save();
         res.json({ success: true, partnership: p });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- MSP Jobs APIs ---
+app.get('/api/msp/jobs', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const jobs = await MaintenanceRequest.find({ assignedMspEntityId: req.user.entityId })
+            .populate('entityId', 'name contactEmail contactPhone') // The DSP
+            .populate('assignedMechanicId', 'name')
+            .sort('-createdAt');
+        res.json(jobs);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const { status, mechanicNotes, laborHours, laborRate } = req.body;
+        const job = await MaintenanceRequest.findOne({ 
+            _id: req.params.id, 
+            assignedMspEntityId: req.user.entityId 
+        });
+
+        if (!job) return res.status(404).json({ error: 'Job not found' });
+
+        const oldStatus = job.status;
+        job.status = status;
+        
+        if (mechanicNotes !== undefined) job.mechanicNotes = mechanicNotes;
+        if (laborHours !== undefined) job.laborHours = laborHours;
+        if (laborRate !== undefined) job.laborRate = laborRate;
+
+        if (status === 'accepted' && oldStatus !== 'accepted') job.acceptedAt = new Date();
+        if (status === 'completed' && oldStatus !== 'completed') job.completedAt = new Date();
+
+        await job.save();
+
+        // Log the activity
+        await ActivityLog.create({
+            jobId: job._id,
+            actorId: req.user._id,
+            actorEntityId: req.user.entityId,
+            action: 'status_change',
+            fromValue: oldStatus,
+            toValue: status
+        });
+
+        res.json({ success: true, job });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -752,10 +809,22 @@ app.get('/api/vehicles/:id/barcode', async (req, res) => {
 
 // --- Maintenance Routes ---
 
+app.get('/api/dsp/active-msps', isAuthenticated, async (req, res) => {
+    try {
+        const partnerships = await Partnership.find({ 
+            dspEntityId: req.user.entityId, 
+            status: 'active' 
+        }).populate('mspEntityId', 'name');
+        res.json(partnerships);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 const uploadTemp = multer({ dest: 'uploads/' });
 app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
     try {
-        const { title, description, vehicleId, priority } = req.body;
+        const { title, description, vehicleId, priority, assignedMspEntityId } = req.body;
         let photoUrl = null;
 
         if (req.file) {
@@ -766,15 +835,40 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
             fs.unlinkSync(req.file.path); // Clean up temp file
         }
 
+        let finalMspId = assignedMspEntityId;
+        if (!finalMspId) {
+            const autoPartnership = await Partnership.findOne({
+                dspEntityId: req.user?.entityId,
+                status: 'active',
+                defaultAutoAssign: true
+            });
+            if (autoPartnership) {
+                finalMspId = autoPartnership.mspEntityId;
+            }
+        }
+
         const newRequest = new MaintenanceRequest({
             entityId: req.user?.entityId,
             title,
             description,
             vehicleId,
             priority,
-            photoUrl
+            photoUrl,
+            assignedMspEntityId: finalMspId || undefined,
+            status: finalMspId ? 'assigned' : 'pending'
         });
         await newRequest.save();
+
+        if (finalMspId) {
+            await ActivityLog.create({
+                jobId: newRequest._id,
+                actorId: req.user._id,
+                actorEntityId: req.user.entityId,
+                action: 'status_change',
+                fromValue: 'pending',
+                toValue: 'assigned'
+            });
+        }
 
         // Automatically create a Task for the dashboard
         const vehicle = await Vehicle.findById(vehicleId);

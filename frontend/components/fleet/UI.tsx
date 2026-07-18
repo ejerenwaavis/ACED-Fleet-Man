@@ -28,6 +28,27 @@ export function StatusPill({ status }: { status: string }) {
   );
 }
 
+export function JobStatusPill({ status }: { status: string }) {
+  const map: Record<string, { bg: string; fg: string }> = {
+    pending: { bg: "#f3f4f6", fg: "#6b7280" },
+    assigned: { bg: "#e0e7ff", fg: "#4338ca" },
+    accepted: { bg: "#dbeafe", fg: "#1d4ed8" },
+    "in-progress": { bg: "var(--amber-bg)", fg: "var(--amber)" },
+    "awaiting-parts": { bg: "#ffedd5", fg: "#c2410c" },
+    completed: { bg: "var(--green-bg)", fg: "var(--green)" },
+    invoiced: { bg: "#f3e8ff", fg: "#7e22ce" },
+    closed: { bg: "#e2e8f0", fg: "#475569" },
+    cancelled: { bg: "var(--red-bg)", fg: "var(--red)" }
+  };
+  const s = map[status?.toLowerCase()] || map.pending;
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: s.bg, color: s.fg }}>
+      <Circle className="w-2 h-2" fill={s.fg} stroke="none" />
+      {status ? status.replace('-', ' ') : 'pending'}
+    </span>
+  );
+}
+
 export function ManifestTag({ route, id, size = "md" }: { route: string; id: string; size?: "md" | "lg" }) {
   const big = size === "lg";
   return (

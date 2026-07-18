@@ -10,6 +10,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [activeMsps, setActiveMsps] = useState<any[]>([]);
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
 
   const fetchData = () => {
@@ -20,8 +21,15 @@ export default function Dashboard() {
       
     apiFetch(`/api/walkthrough-templates`)
       .then(res => res.json())
+      .then(res => {
+         if (Array.isArray(res)) setTemplates(res);
+      })
+      .catch(console.error);
+      
+    apiFetch(`/api/dsp/active-msps`)
+      .then(res => res.json())
       .then(d => {
-         if (Array.isArray(d)) setTemplates(d);
+         if (Array.isArray(d)) setActiveMsps(d);
       })
       .catch(console.error);
   };
@@ -88,6 +96,12 @@ export default function Dashboard() {
             { label: 'Medium', value: 'Medium' },
             { label: 'High', value: 'High' }
           ]} />
+          
+          <Select label="Assign to Mechanic Shop" name="assignedMspEntityId" options={[
+            { label: 'Auto-assign / Internal (Pending)', value: '' },
+            ...activeMsps.map((p: any) => ({ label: p.mspEntityId?.name, value: p.mspEntityId?._id }))
+          ]} />
+
           <TextArea label="Description" name="description" required placeholder="Detailed description of the issue" />
           <div className="flex justify-end gap-2 mt-6">
             <Btn type="button" variant="ghost" onClick={() => setIsMaintenanceOpen(false)}>Cancel</Btn>

@@ -454,9 +454,12 @@ app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, async (
 });
 
 // Connect to MongoDB
+console.error(`[${new Date().toISOString()}] === STARTUP SEQUENCE INITIATED ===`);
+console.error(`[${new Date().toISOString()}] Attempting to connect to MongoDB. process.env.MONGODB_URI is: ${process.env.MONGODB_URI ? 'SET (Value Hidden)' : 'UNDEFINED'}`);
+
 mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((err) => console.error('MongoDB connection error:', err));
+    .then(() => console.error(`[${new Date().toISOString()}] SUCCESSFULLY CONNECTED TO MONGODB!`))
+    .catch((err) => console.error(`[${new Date().toISOString()}] FATAL MONGODB CONNECTION ERROR:`, err));
 
 // Seed mock vehicles if none exist
 const seedVehicles = async (entityId) => {
@@ -1267,5 +1270,6 @@ app.use((err, req, res, next) => {
 // 13. app.listen
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.error(`[${new Date().toISOString()}] APP.LISTEN FIRED: Server is successfully running and bound to port ${PORT}!`);
+    console.error(`[${new Date().toISOString()}] === STARTUP SEQUENCE COMPLETE ===`);
 });

@@ -79,7 +79,7 @@ export default function PartnershipsPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="font-display font-bold text-xl text-[var(--ink)]">{otherParty?.name || 'Unknown Entity'}</h3>
-                  {otherParty?.isVerified && <ShieldCheck className="w-5 h-5 text-green-500" title="Verified" />}
+                  {otherParty?.isVerified && <ShieldCheck className="w-5 h-5 text-green-500" aria-label="Verified" />}
                   <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                     p.status === 'active' ? 'bg-green-100 text-green-700' :
                     p.status === 'pending' ? 'bg-amber-100 text-amber-700' :

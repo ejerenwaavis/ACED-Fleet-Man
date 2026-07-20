@@ -14,6 +14,8 @@ export default function ServicePage() {
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [activeMsps, setActiveMsps] = useState<any[]>([]);
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
   
   // Modals state
   const [selectedJob, setSelectedJob] = useState<any>(null);
@@ -48,9 +50,19 @@ export default function ServicePage() {
     }
   };
 
-  const newRequests = requests.filter(r => ['pending', 'assigned'].includes(r.status));
-  const inProgress = requests.filter(r => ['accepted', 'in-progress', 'awaiting-parts'].includes(r.status));
-  const completed = requests.filter(r => ['completed', 'invoiced', 'closed'].includes(r.status));
+  const filteredRequests = selectedMonth 
+    ? requests.filter(r => r.createdAt && r.createdAt.startsWith(selectedMonth))
+    : requests;
+
+  const newRequests = filteredRequests.filter(r => ['pending', 'assigned'].includes(r.status));
+  const inProgress = filteredRequests.filter(r => ['accepted', 'in-progress', 'awaiting-parts'].includes(r.status));
+  const completed = filteredRequests.filter(r => ['completed', 'invoiced', 'closed'].includes(r.status));
+
+  // Get unique months for the dropdown
+  const availableMonths = Array.from(new Set(requests.map(r => r.createdAt?.substring(0, 7)).filter(Boolean))).sort().reverse();
+  if (!availableMonths.includes(currentMonthStr)) {
+    availableMonths.unshift(currentMonthStr);
+  }
 
   const openDetails = (job: any) => {
     setSelectedJob(job);
@@ -83,7 +95,7 @@ export default function ServicePage() {
   };
 
   const Column = ({ title, items, icon: Icon, color }: any) => (
-    <div className="flex-1 min-w-[300px] bg-[var(--surface)] border border-[var(--hairline)] rounded-xl flex flex-col h-full max-h-[calc(100vh-200px)]">
+    <div className="flex-1 min-w-[85vw] md:min-w-[300px] snap-center bg-[var(--surface)] border border-[var(--hairline)] rounded-xl flex flex-col h-full max-h-[calc(100vh-200px)] shrink-0">
       <div className="p-4 border-b border-[var(--hairline)] flex items-center justify-between sticky top-0 bg-[var(--surface)] rounded-t-xl z-10">
         <div className="flex items-center gap-2 font-semibold text-[var(--ink)]">
           <Icon className="w-5 h-5" style={{ color }} />
@@ -148,14 +160,27 @@ export default function ServicePage() {
         title="Service & Repairs" 
         subtitle="Track active repair jobs and maintenance requests"
         right={
-          <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New Request</Btn>
+          <div className="flex items-center gap-3">
+            <select 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-2 border border-[var(--hairline)] rounded-lg text-sm bg-white outline-none"
+            >
+              <option value="">All Time</option>
+              {availableMonths.map((m: string) => {
+                const date = new Date(m + '-02'); // '-02' avoids timezone offset issues
+                return <option key={m} value={m}>{date.toLocaleString('default', { month: 'short', year: 'numeric' })}</option>;
+              })}
+            </select>
+            <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New Request</Btn>
+          </div>
         }
       />
 
       {loading ? (
         <div className="p-8 text-center text-[var(--steel)]">Loading requests...</div>
       ) : (
-        <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
+        <div className="flex-1 flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory">
           <Column title="Pending / Unassigned" items={newRequests} icon={AlertTriangle} color="var(--amber)" />
           <Column title="In Progress" items={inProgress} icon={Wrench} color="var(--signal)" />
           <Column title="Completed" items={completed} icon={CheckCircle2} color="var(--green)" />

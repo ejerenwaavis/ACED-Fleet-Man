@@ -441,7 +441,7 @@ app.get('/api/msp/jobs', isAuthenticated, isManagerOrAdmin, async (req, res) => 
     }
 });
 
-app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, uploadTemp.array('mechanicAttachments', 5), async (req, res) => {
     try {
         const { status, mechanicNotes, laborHours, laborRate } = req.body;
         const job = await MaintenanceRequest.findOne({ 
@@ -455,11 +455,30 @@ app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, async (
         job.status = status;
         
         if (mechanicNotes !== undefined) job.mechanicNotes = mechanicNotes;
-        if (laborHours !== undefined) job.laborHours = laborHours;
-        if (laborRate !== undefined) job.laborRate = laborRate;
+        if (laborHours !== undefined && laborHours !== "") job.laborHours = Number(laborHours);
+        if (laborRate !== undefined && laborRate !== "") job.laborRate = Number(laborRate);
 
         if (status === 'accepted' && oldStatus !== 'accepted') job.acceptedAt = new Date();
         if (status === 'completed' && oldStatus !== 'completed') job.completedAt = new Date();
+
+        if (req.files && Array.isArray(req.files)) {
+            let photoUrls = [];
+            for (const file of req.files) {
+                try {
+                    const result = await cloudinary.uploader.upload(file.path, {
+                        folder: 'fleetMan'
+                    });
+                    photoUrls.push(result.secure_url);
+                } catch (uploadErr) {
+                    console.error("Cloudinary upload failed:", uploadErr);
+                } finally {
+                    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+                }
+            }
+            if (photoUrls.length > 0) {
+                job.mechanicAttachments = [...(job.mechanicAttachments || []), ...photoUrls];
+            }
+        }
 
         await job.save();
 

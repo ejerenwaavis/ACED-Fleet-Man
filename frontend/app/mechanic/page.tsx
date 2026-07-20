@@ -16,6 +16,7 @@ export default function MechanicDashboard() {
   const [mechanicNotes, setMechanicNotes] = useState("");
   const [laborHours, setLaborHours] = useState("");
   const [laborRate, setLaborRate] = useState("");
+  const [mechanicPhotos, setMechanicPhotos] = useState<File[]>([]);
 
   useEffect(() => {
     fetchJobs();
@@ -39,20 +40,26 @@ export default function MechanicDashboard() {
     setMechanicNotes(job.mechanicNotes || "");
     setLaborHours(job.laborHours || "");
     setLaborRate(job.laborRate || "");
+    setMechanicPhotos([]);
     setIsUpdateModalOpen(true);
   };
 
   const handleUpdate = async (e: any) => {
     e.preventDefault();
     try {
-      const body: any = { status: updateStatus, mechanicNotes };
-      if (laborHours) body.laborHours = Number(laborHours);
-      if (laborRate) body.laborRate = Number(laborRate);
+      const formData = new FormData();
+      formData.append("status", updateStatus);
+      formData.append("mechanicNotes", mechanicNotes);
+      if (laborHours) formData.append("laborHours", laborHours.toString());
+      if (laborRate) formData.append("laborRate", laborRate.toString());
+      
+      mechanicPhotos.forEach((file) => {
+        formData.append("mechanicAttachments", file);
+      });
 
       const res = await apiFetch(`/api/msp/jobs/${selectedJob._id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: formData
       });
       if (res.ok) {
         setIsUpdateModalOpen(false);
@@ -213,7 +220,37 @@ export default function MechanicDashboard() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 mt-6">
+            <div>
+              <label className="block text-sm font-medium text-[var(--ink)] mb-1.5">Progress Photos</label>
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*"
+                onChange={(e) => setMechanicPhotos(Array.from(e.target.files || []))}
+                className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[var(--signal)] file:text-white hover:file:bg-[var(--signal-dark)] border border-[var(--hairline)] rounded-lg"
+              />
+              {mechanicPhotos.length > 0 && (
+                <p className="text-xs text-[var(--steel)] mt-1">{mechanicPhotos.length} file(s) selected for upload</p>
+              )}
+            </div>
+            
+            {selectedJob.mechanicAttachments && selectedJob.mechanicAttachments.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-[var(--ink)] mb-1.5">Previously Uploaded Progress Photos</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {selectedJob.mechanicAttachments.map((url: string, i: number) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="w-16 h-16 rounded-lg overflow-hidden border border-[var(--hairline)] block bg-gray-100 flex items-center justify-center relative group">
+                       <img src={url} className="w-full h-full object-cover" alt="Mechanic Attachment" />
+                       <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center">
+                         <ExternalLink className="w-4 h-4 text-white" />
+                       </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4">
               <Btn type="button" variant="ghost" onClick={() => setIsUpdateModalOpen(false)}>Cancel</Btn>
               <Btn type="submit" variant="primary">Save Changes</Btn>
             </div>

@@ -223,7 +223,7 @@ export default function ServicePage() {
 
             {selectedJob.attachments && selectedJob.attachments.length > 0 && (
               <div>
-                <h4 className="font-bold text-sm mb-2">Attachments</h4>
+                <h4 className="font-bold text-sm mb-2">Original Attachments</h4>
                 <div className="flex gap-2 flex-wrap">
                   {selectedJob.attachments.map((url: string, idx: number) => (
                     <a key={idx} href={url} target="_blank" rel="noreferrer" className="w-24 h-24 bg-gray-200 rounded-lg overflow-hidden border border-[var(--hairline)] block">
@@ -231,6 +231,30 @@ export default function ServicePage() {
                     </a>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {(selectedJob.mechanicNotes || (selectedJob.mechanicAttachments && selectedJob.mechanicAttachments.length > 0)) && (
+              <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mt-4">
+                <h4 className="font-bold text-sm mb-2 text-blue-900">Mechanic Updates</h4>
+                {selectedJob.mechanicNotes && (
+                  <p className="text-sm text-blue-800 whitespace-pre-wrap mb-3">{selectedJob.mechanicNotes}</p>
+                )}
+                {selectedJob.mechanicAttachments && selectedJob.mechanicAttachments.length > 0 && (
+                  <div>
+                    <h5 className="font-semibold text-xs text-blue-800 mb-1.5 uppercase tracking-wider">Progress Photos</h5>
+                    <div className="flex gap-2 flex-wrap">
+                      {selectedJob.mechanicAttachments.map((url: string, idx: number) => (
+                        <a key={idx} href={url} target="_blank" rel="noreferrer" className="w-24 h-24 bg-white rounded-lg overflow-hidden border border-blue-200 block shadow-sm relative group">
+                          <img src={url} alt="Mechanic Photo" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-blue-900/40 hidden group-hover:flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">View</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

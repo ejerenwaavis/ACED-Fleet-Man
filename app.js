@@ -40,6 +40,8 @@ const hostUrl = process.env.HOST || 'fleetman.aceddivision.com';
 const backendUrl = isProd ? `https://${hostUrl}` : 'http://localhost:3000';
 const frontendUrl = isProd ? `https://${hostUrl}` : 'http://localhost:3001';
 
+const uploadTemp = multer({ dest: 'uploads/' });
+
 // --- Auth Bypass Middleware ---
 // Removed for production / onboarding testing
 // If you want to bypass auth again, you can uncomment this block.
@@ -880,8 +882,6 @@ app.get('/api/dsp/active-msps', isAuthenticated, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-const uploadTemp = multer({ dest: 'uploads/' });
 
 app.post('/api/maintenance/:id/cancel', isAuthenticated, async (req, res) => {
     try {

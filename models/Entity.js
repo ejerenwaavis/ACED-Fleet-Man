@@ -16,6 +16,13 @@ const entitySchema = new mongoose.Schema({
     specialties: [{ type: String }],
     serviceRadius: { type: Number },
     isVerified: { type: Boolean, default: false },
+    autoAcceptRules: { type: Boolean, default: false },
+    standardHourlyRate: { type: Number, default: 0 },
+    workingHours: { type: String, default: 'Mon-Fri 8am-5pm' },
+    
+    // Billing & compliance (DSP & MSP)
+    strikes: { type: Number, default: 0 },
+    blacklistStatus: { type: String, enum: ['active', 'suspended', 'blacklisted'], default: 'active' },
     
     // Directory visibility toggle
     listedInDirectory: { type: Boolean, default: true }

@@ -39,12 +39,13 @@ export default function DirectoryPage() {
   const handleRequest = async (e: any) => {
     e.preventDefault();
     setRequesting(true);
+    setSuccess(false);
     try {
       const res = await apiFetch(`/api/partnerships`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mspEntityId: selectedMsp._id,
+          targetEntityId: selectedMsp._id,
           terms: partnershipTerms
         })
       });
@@ -53,9 +54,13 @@ export default function DirectoryPage() {
         setTimeout(() => {
           setIsModalOpen(false);
         }, 2000);
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || "Failed to send request.");
       }
     } catch (err) {
       console.error(err);
+      alert("An error occurred while sending the request.");
     } finally {
       setRequesting(false);
     }

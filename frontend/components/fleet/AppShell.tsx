@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Truck, ClipboardList, FileText, LayoutGrid, Search, Bell, X, Settings, Wrench, Compass, Handshake, Menu } from "lucide-react";
 import { NavItem } from "./UI";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,8 +15,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const { user } = useAuth();
 
+  useEffect(() => {
+    if (!user) return;
+    
+    const role = user.role;
+    const entityType = user.entityId?.entityType;
+    const isMechanic = entityType === 'msp';
+    const normalizedPath = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+
+    if (isMechanic) {
+      const restrictedForMsp = ['/', '/roster', '/directory', '/walkthroughs', '/records', '/service'];
+      const isRestricted = restrictedForMsp.some(route => 
+        route === '/' ? normalizedPath === '/' : normalizedPath.startsWith(route)
+      );
+      
+      if (isRestricted) {
+        router.push('/mechanic');
+      }
+    } else {
+      const restrictedForDsp = ['/mechanic'];
+      const isRestricted = restrictedForDsp.some(route => normalizedPath.startsWith(route));
+      
+      if (isRestricted) {
+        router.push('/');
+      }
+    }
+
+    if (role === 'driver' && normalizedPath.startsWith('/settings')) {
+       router.push('/');
+    }
+  }, [user, pathname, router]);
+
   const allNav = [
     { key: "/", label: "Dispatch", icon: LayoutGrid },
+    { key: "/service", label: "Service & Repairs", icon: Wrench },
     { key: "/roster", label: "Fleet roster", icon: Truck },
     { key: "/directory", label: "Network", icon: Compass },
     { key: "/partnerships", label: "Partnerships", icon: Handshake },
@@ -33,7 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (n.key === '/settings' && role === 'driver') return false;
 
     if (entityType === 'msp') {
-      if (['/', '/roster', '/directory', '/walkthroughs', '/records'].includes(n.key)) return false;
+      if (['/', '/roster', '/directory', '/walkthroughs', '/records', '/service'].includes(n.key)) return false;
     } else {
       if (n.key === '/mechanic') return false;
     }

@@ -286,6 +286,31 @@ const isManagerOrAdmin = (req, res, next) => {
     res.status(401).json({ error: 'Unauthorized' });
 };
 
+// --- Mechanic APIs ---
+app.get('/api/mechanic/settings', isAuthenticated, async (req, res) => {
+    try {
+        const entity = await Entity.findById(req.user.entityId);
+        res.json(entity);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/mechanic/settings', isAuthenticated, async (req, res) => {
+    try {
+        const { autoAcceptRules, standardHourlyRate, workingHours, listedInDirectory, description, contactEmail, contactPhone, specialties, serviceRadius } = req.body;
+        const updates = { autoAcceptRules, standardHourlyRate, workingHours, listedInDirectory, description, contactEmail, contactPhone, specialties, serviceRadius };
+        
+        // Remove undefined fields to not overwrite with nulls accidentally
+        Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+        
+        const entity = await Entity.findByIdAndUpdate(req.user.entityId, updates, { new: true });
+        res.json(entity);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- Partnership APIs ---
 app.get('/api/msp/directory', isAuthenticated, isManagerOrAdmin, async (req, res) => {
     try {
@@ -321,7 +346,8 @@ app.post('/api/partnerships', isAuthenticated, isManagerOrAdmin, async (req, res
             dspEntityId,
             mspEntityId,
             status: 'requested',
-            initiatedBy: myEntityId
+            initiatedBy: myEntityId,
+            terms: req.body.terms
         });
         res.json({ success: true, partnership: p });
     } catch (err) {
@@ -812,6 +838,18 @@ app.get('/api/vehicles/:id/barcode', async (req, res) => {
 
 // --- Maintenance Routes ---
 
+app.get('/api/fleet/maintenance', isAuthenticated, async (req, res) => {
+    try {
+        const requests = await MaintenanceRequest.find({ entityId: req.user.entityId })
+            .populate('assignedMspEntityId', 'name contactEmail')
+            .populate('vehicleId')
+            .sort('-createdAt');
+        res.json(requests);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/dsp/active-msps', isAuthenticated, async (req, res) => {
     try {
         const partnerships = await Partnership.find({ 
@@ -825,17 +863,66 @@ app.get('/api/dsp/active-msps', isAuthenticated, async (req, res) => {
 });
 
 const uploadTemp = multer({ dest: 'uploads/' });
-app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
-    try {
-        const { title, description, vehicleId, priority, assignedMspEntityId } = req.body;
-        let photoUrl = null;
 
-        if (req.file) {
-            const result = await cloudinary.uploader.upload(req.file.path, {
-                folder: 'fleetMan'
-            });
-            photoUrl = result.secure_url;
-            fs.unlinkSync(req.file.path); // Clean up temp file
+app.post('/api/maintenance/:id/cancel', isAuthenticated, async (req, res) => {
+    try {
+        const reqId = req.params.id;
+        const maintenanceReq = await MaintenanceRequest.findById(reqId);
+        
+        if (!maintenanceReq) {
+            return res.status(404).json({ error: 'Request not found' });
+        }
+        
+        // Ensure user is an admin or manager
+        if (!['admin', 'manager'].includes(req.user.role)) {
+            return res.status(403).json({ error: 'Only managers or admins can cancel requests' });
+        }
+
+        // Ensure only the DSP who created it can cancel it
+        if (maintenanceReq.entityId.toString() !== req.user.entityId.toString()) {
+            return res.status(403).json({ error: 'Unauthorized to cancel this request' });
+        }
+
+        // Only allow cancellation if it is pending or assigned
+        if (!['pending', 'assigned'].includes(maintenanceReq.status)) {
+            return res.status(400).json({ error: 'Cannot cancel a request that is already in progress or completed' });
+        }
+
+        maintenanceReq.status = 'cancelled';
+        await maintenanceReq.save();
+        
+        await ActivityLog.create({
+            jobId: maintenanceReq._id,
+            actorId: req.user._id,
+            action: 'request_cancelled',
+            description: 'Request was cancelled by the fleet manager'
+        });
+
+        res.json(maintenanceReq);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/maintenance', isAuthenticated, uploadTemp.array('attachments', 5), async (req, res) => {
+    try {
+        const { title, description, vehicleId, priority, assignedMspEntityId, requestType, location } = req.body;
+        let photoUrls = [];
+
+        if (req.files && Array.isArray(req.files)) {
+            for (const file of req.files) {
+                try {
+                    const result = await cloudinary.uploader.upload(file.path, {
+                        folder: 'fleetMan'
+                    });
+                    photoUrls.push(result.secure_url);
+                } catch (uploadErr) {
+                    console.error("Cloudinary upload failed:", uploadErr);
+                    // Continue without the photo, or you could return a 400 error here.
+                } finally {
+                    if (fs.existsSync(file.path)) fs.unlinkSync(file.path); // Clean up temp file
+                }
+            }
         }
 
         let finalMspId = assignedMspEntityId;
@@ -854,9 +941,11 @@ app.post('/api/maintenance', uploadTemp.single('photo'), async (req, res) => {
             entityId: req.user?.entityId,
             title,
             description,
-            vehicleId,
+            requestType: requestType || 'Vehicle Issue',
+            vehicleId: (vehicleId && vehicleId.trim() !== '') ? vehicleId : undefined,
+            location: location || null,
             priority,
-            photoUrl,
+            attachments: photoUrls,
             assignedMspEntityId: finalMspId || undefined,
             status: finalMspId ? 'assigned' : 'pending'
         });
@@ -1251,6 +1340,92 @@ app.get('/api/mmr-data', async (req, res) => {
         // We will just fetch weekend walkthroughs to simulate MMR records
         const records = await WeekendWalkthrough.find({ entityId: req.user?.entityId }).populate('vehicleId').sort('-createdAt');
         res.json(records);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Invoice APIs ---
+app.get('/api/invoices', isAuthenticated, async (req, res) => {
+    try {
+        const myEntityId = req.user.entityId;
+        const myEntity = await Entity.findById(myEntityId);
+        
+        let query = {};
+        if (myEntity.entityType === 'dsp') query.dspEntityId = myEntityId;
+        else query.mspEntityId = myEntityId;
+
+        const invoices = await Invoice.find(query)
+            .populate('dspEntityId', 'name contactEmail')
+            .populate('mspEntityId', 'name contactEmail')
+            .populate('maintenanceRequestId', 'title');
+            
+        res.json(invoices);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/invoices', isAuthenticated, async (req, res) => {
+    try {
+        const { maintenanceRequestId, amount, dueDate } = req.body;
+        const maintenanceReq = await MaintenanceRequest.findById(maintenanceRequestId);
+        if (!maintenanceReq) return res.status(404).json({ error: 'Request not found' });
+        
+        const invoice = await Invoice.create({
+            dspEntityId: maintenanceReq.entityId,
+            mspEntityId: req.user.entityId,
+            maintenanceRequestId,
+            amount,
+            dueDate
+        });
+        
+        maintenanceReq.invoiceId = invoice._id;
+        maintenanceReq.status = 'invoiced';
+        await maintenanceReq.save();
+        
+        res.json(invoice);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/invoices/:id/pay', isAuthenticated, async (req, res) => {
+    try {
+        const invoice = await Invoice.findByIdAndUpdate(req.params.id, {
+            status: 'paid',
+            paidAt: new Date()
+        }, { new: true });
+        res.json(invoice);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/check-overdue-invoices', isAuthenticated, async (req, res) => {
+    // Mock cron endpoint for checking overdue invoices
+    try {
+        const overdueInvoices = await Invoice.find({
+            status: 'pending',
+            dueDate: { $lt: new Date() }
+        });
+        
+        // Very basic mock logic: increment strikes for every overdue invoice
+        for (let inv of overdueInvoices) {
+            inv.status = 'overdue';
+            await inv.save();
+            
+            const entity = await Entity.findById(inv.dspEntityId);
+            if (entity) {
+                entity.strikes += 1;
+                if (entity.strikes >= 3) {
+                    entity.blacklistStatus = 'blacklisted';
+                }
+                await entity.save();
+            }
+        }
+        
+        res.json({ success: true, processed: overdueInvoices.length });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

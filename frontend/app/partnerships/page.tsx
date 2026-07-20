@@ -82,7 +82,7 @@ export default function PartnershipsPage() {
                   {otherParty?.isVerified && <ShieldCheck className="w-5 h-5 text-green-500" aria-label="Verified" />}
                   <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                     p.status === 'active' ? 'bg-green-100 text-green-700' :
-                    p.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                    p.status === 'requested' ? 'bg-amber-100 text-amber-700' :
                     'bg-red-100 text-red-700'
                   }`}>
                     {p.status}
@@ -99,7 +99,7 @@ export default function PartnershipsPage() {
               </div>
 
               <div className="flex flex-col gap-3 min-w-[200px] w-full md:w-auto">
-                {p.status === 'pending' && (
+                {p.status === 'requested' && (
                   <>
                     {!isMyRequest ? (
                       <div className="flex gap-2 w-full">

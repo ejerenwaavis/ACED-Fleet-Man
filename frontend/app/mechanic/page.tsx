@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Wrench, CheckCircle2, AlertTriangle, Settings, Truck } from "lucide-react";
+import Link from "next/link";
+import { Truck, Wrench, AlertTriangle, CheckCircle2, Settings, MapPin, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { PageHeader, Btn, JobStatusPill, Modal, Select } from "@/components/fleet/UI";
 import { apiFetch } from "@/lib/api";
 
@@ -91,8 +92,11 @@ export default function MechanicDashboard() {
             
             <div className="flex items-center justify-between pt-3 border-t border-[var(--hairline)]">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ink)]">
-                <Truck className="w-3 h-3 text-[var(--steel)]" />
-                {job.vehicleId}
+                {job.requestType === 'Property / Facility Issue' ? (
+                  <><MapPin className="w-3 h-3 text-[var(--steel)]" /> Property</>
+                ) : (
+                  <><Truck className="w-3 h-3 text-[var(--steel)]" /> {job.vehicleId || 'Vehicle'}</>
+                )}
               </div>
               <div className="text-[10px] text-[var(--steel)] uppercase tracking-wider font-semibold bg-[var(--canvas)] px-2 py-1 rounded-md">
                 {job.entityId?.name || "Unknown DSP"}
@@ -116,7 +120,9 @@ export default function MechanicDashboard() {
         title="Job Board" 
         subtitle="Manage your incoming and active repair orders"
         right={
-          <Btn variant="ghost" icon={Settings}>Shop Settings</Btn>
+          <Link href="/mechanic/settings">
+            <Btn variant="ghost" icon={Settings}>Shop Settings</Btn>
+          </Link>
         }
       />
 
@@ -131,7 +137,30 @@ export default function MechanicDashboard() {
           <form onSubmit={handleUpdate} className="space-y-4">
             <div className="mb-4">
               <h3 className="font-bold text-lg text-[var(--ink)]">{selectedJob.title}</h3>
-              <p className="text-sm text-[var(--steel)]">{selectedJob.description}</p>
+              <p className="text-sm text-[var(--steel)] mb-3">{selectedJob.description}</p>
+              
+              {selectedJob.location && (
+                <div className="flex items-center gap-2 mb-3 bg-[var(--surface)] p-3 rounded-lg border border-[var(--hairline)]">
+                  <MapPin className="w-5 h-5 text-[var(--steel)]" />
+                  <span className="flex-1 text-sm font-medium">{selectedJob.location}</span>
+                  <a href={`https://maps.google.com/?q=${encodeURIComponent(selectedJob.location)}`} target="_blank" rel="noreferrer" className="text-[var(--signal)] text-sm flex items-center gap-1 hover:underline">
+                    Navigate <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+
+              {selectedJob.attachments && selectedJob.attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {selectedJob.attachments.map((url: string, i: number) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="w-16 h-16 rounded-lg overflow-hidden border border-[var(--hairline)] block bg-gray-100 flex items-center justify-center relative group">
+                       <img src={url} className="w-full h-full object-cover" alt="Attachment" />
+                       <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center">
+                         <ExternalLink className="w-4 h-4 text-white" />
+                       </div>
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
             
             <Select 

@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { Truck, Wrench, ShieldCheck, Moon, CalendarCheck, Plus, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
-import { PageHeader, Btn, StatTag, ManifestTag, Modal, Input, Select, TextArea } from "@/components/fleet/UI";
+import { PageHeader, Btn, StatTag, ManifestTag } from "@/components/fleet/UI";
+import { NewMaintenanceRequestModal } from "@/components/fleet/NewMaintenanceRequestModal";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/components/fleet/AuthProvider";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -12,6 +14,13 @@ export default function Dashboard() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [activeMsps, setActiveMsps] = useState<any[]>([]);
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user?.role === 'mechanic') {
+      router.replace('/mechanic');
+    }
+  }, [user, authLoading, router]);
 
   const fetchData = () => {
     apiFetch(`/api/dashboard-data`)
@@ -22,14 +31,14 @@ export default function Dashboard() {
     apiFetch(`/api/walkthrough-templates`)
       .then(res => res.json())
       .then(res => {
-         if (Array.isArray(res)) setTemplates(res);
+        if(Array.isArray(res)) setTemplates(res);
       })
       .catch(console.error);
-      
+
     apiFetch(`/api/dsp/active-msps`)
       .then(res => res.json())
-      .then(d => {
-         if (Array.isArray(d)) setActiveMsps(d);
+      .then(res => {
+        if(Array.isArray(res)) setActiveMsps(res);
       })
       .catch(console.error);
   };
@@ -38,24 +47,7 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  const handleMaintenanceSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    
-    try {
-      await apiFetch(`/api/maintenance`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json'
-        },
-        body: formData
-      });
-      setIsMaintenanceOpen(false);
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
   if (!data) {
     return <div className="flex items-center justify-center py-20 text-[var(--steel)]">Loading dashboard...</div>;
@@ -87,28 +79,13 @@ export default function Dashboard() {
         }
       />
 
-      <Modal isOpen={isMaintenanceOpen} onClose={() => setIsMaintenanceOpen(false)} title="New Maintenance Request">
-        <form onSubmit={handleMaintenanceSubmit}>
-          <Input label="Title" name="title" required placeholder="Brief issue summary" />
-          <Select label="Vehicle" name="vehicleId" required options={vehicles.map((v: any) => ({ label: `${v.truckNumber} - ${v.makeModel || 'Unknown'}`, value: v._id }))} />
-          <Select label="Priority" name="priority" required options={[
-            { label: 'Low', value: 'Low' },
-            { label: 'Medium', value: 'Medium' },
-            { label: 'High', value: 'High' }
-          ]} />
-          
-          <Select label="Assign to Mechanic Shop" name="assignedMspEntityId" options={[
-            { label: 'Auto-assign / Internal (Pending)', value: '' },
-            ...activeMsps.map((p: any) => ({ label: p.mspEntityId?.name, value: p.mspEntityId?._id }))
-          ]} />
-
-          <TextArea label="Description" name="description" required placeholder="Detailed description of the issue" />
-          <div className="flex justify-end gap-2 mt-6">
-            <Btn type="button" variant="ghost" onClick={() => setIsMaintenanceOpen(false)}>Cancel</Btn>
-            <Btn type="submit" variant="primary">Submit Request</Btn>
-          </div>
-        </form>
-      </Modal>
+      <NewMaintenanceRequestModal 
+        isOpen={isMaintenanceOpen} 
+        onClose={() => setIsMaintenanceOpen(false)} 
+        vehicles={vehicles} 
+        activeMsps={activeMsps} 
+        onSuccess={fetchData} 
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatTag label="Total vehicles" value={totalVehicles} accent="var(--ink)" icon={Truck} />

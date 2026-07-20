@@ -4,7 +4,10 @@ const maintenanceRequestSchema = new mongoose.Schema({
     entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity', required: true },
     title: { type: String, required: true },
     description: { type: String, required: true },
-    vehicleId: { type: String, required: true },
+    requestType: { type: String, enum: ['Vehicle Issue', 'Property / Facility Issue'], default: 'Vehicle Issue' },
+    vehicleId: { type: String }, // Optional for Property issues
+    location: { type: String }, // For property issues or vehicle locations
+    attachments: [{ type: String }], // Array of Cloudinary URLs
     reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     status: {
         type: String,

@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from "react";
 import { Download, FileText, Filter } from "lucide-react";
 import { PageHeader, Btn, ManifestTag } from "@/components/fleet/UI";
+import { GenerateMmrModal } from "@/components/fleet/GenerateMmrModal";
 import { apiFetch } from "@/lib/api";
 
 export default function MaintenanceRecords() {
   const [records, setRecords] = useState([]);
+  const [isMmrModalOpen, setIsMmrModalOpen] = useState(false);
 
   useEffect(() => {
 
@@ -25,7 +27,7 @@ export default function MaintenanceRecords() {
         right={
           <>
             <Btn variant="ghost" icon={Filter}>Filter</Btn>
-            <Btn variant="primary" icon={Download}>Export all</Btn>
+            <Btn variant="primary" icon={Download} onClick={() => setIsMmrModalOpen(true)}>Export all</Btn>
           </>
         }
       />
@@ -49,6 +51,8 @@ export default function MaintenanceRecords() {
           </div>
         ))}
       </div>
+
+      <GenerateMmrModal isOpen={isMmrModalOpen} onClose={() => setIsMmrModalOpen(false)} mode="batch" />
     </div>
   );
 }

@@ -179,6 +179,7 @@ app.get('/api/auth/me', async (req, res) => {
     if (req.isAuthenticated()) {
         try {
             const userWithEntity = await User.findById(req.user._id).populate('entityId');
+            // send user with entity, also signatureFilename is on user
             res.json({ user: userWithEntity });
         } catch (err) {
             res.status(500).json({ error: 'Failed to populate user' });
@@ -564,6 +565,9 @@ const templatePath = path.join(__dirname, 'templates', 'MGBA-355.pdf');
 const signaturesDir = path.join(__dirname, 'signatures');
 if (!fs.existsSync(signaturesDir)) fs.mkdirSync(signaturesDir);
 
+// Serve signatures statically
+app.use('/signatures', express.static(signaturesDir));
+
 const uploadSignature = multer({ dest: 'uploads/' });
 const uploadBatch = multer({ dest: 'uploads/' });
 
@@ -590,13 +594,42 @@ app.post('/api/signatures', uploadSignature.single('signature'), (req, res) => {
   res.json({ message: 'Signature saved', filename: `${name}${ext}` });
 });
 
+app.post('/api/user/signature', isAuthenticated, uploadSignature.single('signature'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).send('No file uploaded.');
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.png';
+    const filename = `user_${req.user._id}_${Date.now()}${ext}`;
+    const targetPath = path.join(signaturesDir, filename);
+    
+    fs.renameSync(req.file.path, targetPath);
+
+    // Save to user
+    await User.findByIdAndUpdate(req.user._id, { signatureFilename: filename });
+    
+    res.json({ success: true, filename });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/generate', async (req, res) => {
   try {
-    const { signatureFilename, ...recordData } = req.body;
+    const { signatureFilename, applySignature, ...recordData } = req.body;
     const record = validateRecord(recordData);
+    
+    // Automatically use user's saved signature if applySignature is true and no specific file provided
+    let finalSigFilename = signatureFilename;
+    if (!finalSigFilename && applySignature) {
+       const user = await User.findById(req.user._id);
+       if (user && user.signatureFilename) {
+           finalSigFilename = user.signatureFilename;
+       }
+    }
+
     const dateCompleted = getDateCompleted(record.recordMonth, mmrConfig.dateCompletedStrategy);
     const monthLabel = formatRecordMonthLabel(record.recordMonth);
-    const sigPath = signatureFilename ? path.join(signaturesDir, signatureFilename) : null;
+    const sigPath = finalSigFilename ? path.join(signaturesDir, finalSigFilename) : null;
     const pdfBytes = await fillMmr(record, mmrConfig, sigPath, templatePath, dateCompleted, monthLabel);
     
     res.setHeader('Content-Type', 'application/pdf');
@@ -611,10 +644,18 @@ app.post('/api/generate', async (req, res) => {
 app.post('/api/generate-batch', uploadBatch.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).send('No file uploaded.');
-    const signatureFilename = req.body.signatureFilename;
+    let signatureFilename = req.body.signatureFilename;
     const applySignature = req.body.applySignature === 'true';
     const companyName = req.body.companyName;
     const domicile = req.body.domicile;
+    
+    // Automatically use user's saved signature if applySignature is true and no specific file provided
+    if (!signatureFilename && applySignature) {
+       const user = await User.findById(req.user._id);
+       if (user && user.signatureFilename) {
+           signatureFilename = user.signatureFilename;
+       }
+    }
     const sigPath = signatureFilename ? path.join(signaturesDir, signatureFilename) : null;
 
     const fileContent = fs.readFileSync(req.file.path, 'utf8');
@@ -622,7 +663,8 @@ app.post('/api/generate-batch', uploadBatch.single('file'), async (req, res) => 
     let records;
     if (req.file.originalname.toLowerCase().endsWith('.json')) {
       const parsedJson = JSON.parse(fileContent);
-      records = parsedJson.map(r => validateRecord(r));
+      const dataArray = Array.isArray(parsedJson) ? parsedJson : (parsedJson.vehicles || []);
+      records = dataArray.map(r => validateRecord(r));
     } else {
       records = parseCsv(fileContent);
     }
@@ -1347,7 +1389,9 @@ app.get('/api/dashboard-data', async (req, res) => {
 
 app.get('/api/vehicles-data', async (req, res) => {
     try {
-        const vehicles = await Vehicle.find({ entityId: req.user?.entityId }).sort('routeNumber');
+        const vehicles = await Vehicle.find({ entityId: req.user?.entityId })
+            .collation({ locale: 'en_US', numericOrdering: true })
+            .sort('truckNumber');
         res.json(vehicles);
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Plus, ListFilter, AlertTriangle, Upload, Barcode } from "lucide-react";
+import { Plus, ListFilter, AlertTriangle, Upload, Barcode, FileText } from "lucide-react";
 import { PageHeader, Btn, ManifestTag, StatusPill, OilGauge, Modal, Input, Select } from "@/components/fleet/UI";
 import { BulkUploadModal } from "@/components/fleet/BulkUploadModal";
+import { GenerateMmrModal } from "@/components/fleet/GenerateMmrModal";
 import { getApiBase, apiFetch } from "@/lib/api";
 
 export default function FleetRoster() {
@@ -13,6 +14,7 @@ export default function FleetRoster() {
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
   const [barcodeTruck, setBarcodeTruck] = useState<any>(null);
+  const [mmrTruck, setMmrTruck] = useState<any>(null);
 
   const fetchVehicles = () => {
     apiFetch(`/api/vehicles-data`)
@@ -141,6 +143,8 @@ export default function FleetRoster() {
         )}
       </Modal>
 
+      <GenerateMmrModal isOpen={!!mmrTruck} onClose={() => setMmrTruck(null)} mode="single" defaultVehicle={mmrTruck} />
+
       {/* Desktop Table */}
       <div className="hidden lg:block border border-[var(--hairline)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <table className="w-full text-left border-collapse">
@@ -168,6 +172,7 @@ export default function FleetRoster() {
                 </td>
                 <td className="px-5 py-4"><OilGauge pct={v.lastOilChange ? 50 : 0} /></td>
                 <td className="px-5 py-4 text-right flex gap-2 justify-end">
+                  <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)}>MMR</Btn>
                   <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)}>Barcode</Btn>
                   <Btn variant="ghost" onClick={() => setEditingTruck(v)}>Edit</Btn>
                 </td>
@@ -199,6 +204,7 @@ export default function FleetRoster() {
                 <OilGauge pct={v.lastOilChange ? 50 : 0} />
               </div>
               <div className="col-span-2 flex justify-end gap-2 mt-2">
+                <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)}>MMR</Btn>
                 <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)}>Barcode</Btn>
                 <Btn variant="ghost" onClick={() => setEditingTruck(v)}>Edit</Btn>
               </div>

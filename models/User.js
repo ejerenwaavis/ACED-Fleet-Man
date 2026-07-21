@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
     displayName: { type: String },
     email: { type: String, required: true, unique: true },
     password: { type: String }, // Optional if using Google Auth
+    signatureFilename: { type: String },
     role: { type: String, enum: ['admin', 'manager', 'driver', 'mechanic', 'unassigned'], default: 'unassigned' }
 }, { timestamps: true });
 

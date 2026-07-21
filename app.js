@@ -1282,6 +1282,10 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
         await walkthrough.save();
 
         const vehicle = await Vehicle.findById(vehicleId);
+        if (vehicle && mileage) {
+            vehicle.lastKnownMileage = Number(mileage);
+            await vehicle.save();
+        }
 
         // Generate Maintenance Task if note exists
         if (maintenanceNote) {
@@ -1393,6 +1397,56 @@ app.get('/api/vehicles-data', async (req, res) => {
             .collation({ locale: 'en_US', numericOrdering: true })
             .sort('truckNumber');
         res.json(vehicles);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/auto-mmr-data', async (req, res) => {
+    try {
+        const { month } = req.query; // e.g. "2023-10"
+        if (!month) return res.status(400).json({ error: 'Month is required' });
+
+        const [year, m] = month.split('-');
+        const startOfMonth = new Date(parseInt(year), parseInt(m) - 1, 1);
+        const endOfMonth = new Date(parseInt(year), parseInt(m), 1);
+
+        const vehicles = await Vehicle.find({ 
+            entityId: req.user?.entityId, 
+            status: { $in: ['Active', 'In shop'] } 
+        }).collation({ locale: 'en_US', numericOrdering: true }).sort('truckNumber');
+
+        const data = await Promise.all(vehicles.map(async (v) => {
+            const maintenanceRecords = await MaintenanceRequest.find({
+                entityId: req.user?.entityId,
+                vehicleId: v.truckNumber,
+                status: 'completed',
+                updatedAt: { $gte: startOfMonth, $lt: endOfMonth }
+            });
+
+            const tasks = await Task.find({
+                entityId: req.user?.entityId,
+                title: new RegExp(`.*${v.truckNumber}.*`, 'i'),
+                category: 'maintenance',
+                status: 'completed',
+                updatedAt: { $gte: startOfMonth, $lt: endOfMonth }
+            });
+
+            let combinedNotes = [];
+            maintenanceRecords.forEach(r => combinedNotes.push(`${r.title}: ${r.description}`));
+            tasks.forEach(t => combinedNotes.push(t.description));
+
+            return {
+                id: v._id,
+                unit: v.truckNumber,
+                mileage: v.lastKnownMileage || '',
+                maintenancePerformed: combinedNotes.length > 0 ? 'true' : 'false',
+                outOfService: v.status === 'In shop' ? 'true' : 'false',
+                maintenanceNotes: combinedNotes.join('; ')
+            };
+        }));
+
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

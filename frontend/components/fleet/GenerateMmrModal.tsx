@@ -320,6 +320,8 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
               </button>
             </div>
 
+
+
             {activeTab === 'file' && (
               <div className="border-2 border-dashed border-[var(--hairline)] rounded-xl p-8 text-center bg-gray-50/50">
                 <FileType className="w-10 h-10 text-[var(--steel)] mx-auto mb-3" />

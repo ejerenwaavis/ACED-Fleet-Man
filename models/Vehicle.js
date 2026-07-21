@@ -10,6 +10,7 @@ const vehicleSchema = new mongoose.Schema({
     makeModel: { type: String },
     fuelType: { type: String, enum: ['gas', 'diesel', 'electric', 'hybrid'], default: 'gas' },
     lastOilChange: { type: Date },
+    lastKnownMileage: { type: Number },
     pendingMaintenance: { type: Boolean, default: false },
     registrationUrl: { type: String },
     dotInspectionUrl: { type: String },

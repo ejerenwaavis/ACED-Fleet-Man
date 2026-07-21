@@ -129,11 +129,11 @@ export function Btn({ children, variant = "primary", icon: Icon, className = "",
   );
 }
 
-export function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-md" }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; maxWidth?: string }) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+      <div className={`bg-[var(--surface)] border border-[var(--hairline)] rounded-xl shadow-xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[90vh]`}>
         <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
           <h2 className="font-semibold text-lg text-[var(--ink)]">{title}</h2>
           <button onClick={onClose} className="text-[var(--steel)] hover:text-[var(--ink)] transition-colors">

@@ -4,11 +4,13 @@ import React, { useEffect, useState } from "react";
 import { Download, FileText, Filter } from "lucide-react";
 import { PageHeader, Btn, ManifestTag } from "@/components/fleet/UI";
 import { GenerateMmrModal } from "@/components/fleet/GenerateMmrModal";
+import { AutoGenerateMmrModal } from "@/components/fleet/AutoGenerateMmrModal";
 import { apiFetch } from "@/lib/api";
 
 export default function MaintenanceRecords() {
   const [records, setRecords] = useState([]);
   const [isMmrModalOpen, setIsMmrModalOpen] = useState(false);
+  const [isAutoMmrModalOpen, setIsAutoMmrModalOpen] = useState(false);
 
   useEffect(() => {
 
@@ -27,7 +29,8 @@ export default function MaintenanceRecords() {
         right={
           <>
             <Btn variant="ghost" icon={Filter}>Filter</Btn>
-            <Btn variant="primary" icon={Download} onClick={() => setIsMmrModalOpen(true)}>Export all</Btn>
+            <Btn variant="primary" icon={Download} onClick={() => setIsAutoMmrModalOpen(true)}>Auto-Generate Fleet MMRs</Btn>
+            <Btn variant="ghost" icon={Download} onClick={() => setIsMmrModalOpen(true)}>Batch Generate</Btn>
           </>
         }
       />
@@ -53,6 +56,7 @@ export default function MaintenanceRecords() {
       </div>
 
       <GenerateMmrModal isOpen={isMmrModalOpen} onClose={() => setIsMmrModalOpen(false)} mode="batch" />
+      <AutoGenerateMmrModal isOpen={isAutoMmrModalOpen} onClose={() => setIsAutoMmrModalOpen(false)} />
     </div>
   );
 }

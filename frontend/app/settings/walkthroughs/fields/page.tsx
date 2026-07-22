@@ -14,6 +14,7 @@ export default function TemplateFieldsEditor() {
   const [items, setItems] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [newFieldType, setNewFieldType] = useState('checkbox');
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
@@ -54,11 +55,13 @@ export default function TemplateFieldsEditor() {
       id: 'field_' + Date.now().toString(36),
       label: formData.get('label'),
       type: formData.get('type'),
-      required: formData.get('required') === 'on'
+      required: formData.get('required') === 'on',
+      isMileageField: formData.get('isMileageField') === 'on'
     };
 
     setItems([...items, newField]);
     setIsModalOpen(false);
+    setNewFieldType('checkbox');
   };
 
   const removeField = (fieldId: string) => {
@@ -99,6 +102,7 @@ export default function TemplateFieldsEditor() {
                   <div className="font-semibold text-[var(--ink)] flex items-center gap-2">
                     {item.label}
                     {item.required && <span className="text-[10px] uppercase font-bold tracking-wider text-red-600 bg-red-50 px-1.5 py-0.5 rounded">Required</span>}
+                    {item.isMileageField && <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--signal)] bg-[var(--canvas)] px-1.5 py-0.5 rounded">Mileage</span>}
                   </div>
                   <div className="text-xs text-[var(--steel)] mt-1 uppercase tracking-wider">Type: {item.type}</div>
                 </div>
@@ -116,6 +120,8 @@ export default function TemplateFieldsEditor() {
             label="Field Type"
             name="type" 
             required
+            value={newFieldType}
+            onChange={(e: any) => setNewFieldType(e.target.value)}
             options={[
               { label: 'Checkbox (Yes/No)', value: 'checkbox' },
               { label: 'Text Input', value: 'text' },
@@ -126,6 +132,12 @@ export default function TemplateFieldsEditor() {
             <input type="checkbox" id="required" name="required" className="w-5 h-5 rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]" />
             <label htmlFor="required" className="text-sm font-medium text-[var(--ink)]">Make this field required</label>
           </div>
+          {newFieldType === 'number' && (
+            <div className="flex items-center gap-3 py-2 bg-[var(--canvas)] px-3 rounded-lg">
+              <input type="checkbox" id="isMileageField" name="isMileageField" className="w-5 h-5 rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]" />
+              <label htmlFor="isMileageField" className="text-sm font-medium text-[var(--ink)]">Use this as the odometer/mileage reading<br/><span className="text-xs font-normal text-[var(--steel)]">Updates the vehicle's Last Known Mileage on Fleet Roster when submitted</span></label>
+            </div>
+          )}
           <div className="flex gap-3 pt-4 border-t border-[var(--hairline)]">
             <Btn variant="ghost" className="flex-1" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Btn>
             <Btn variant="primary" className="flex-1" type="submit">Add Field</Btn>

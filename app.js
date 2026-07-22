@@ -21,6 +21,8 @@ const Vehicle = require('./models/Vehicle');
 const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
 const Entity = require('./models/Entity');
+const WalkthroughTemplate = require('./models/WalkthroughTemplate');
+const WalkthroughRecord = require('./models/WalkthroughRecord');
 const QRCode = require('qrcode');
 
 // 2. const app = express()
@@ -596,6 +598,180 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Error submitting weekend walkthrough');
+    }
+});
+
+// --- Dynamic Template-based Walkthrough Routes ---
+
+// GET templates list
+app.get('/api/walkthrough-templates', async (req, res) => {
+    try {
+        const templates = await WalkthroughTemplate.find({ entityId: req.user?.entityId }).sort('name');
+        res.json(templates);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/walkthrough-templates', async (req, res) => {
+    try {
+        const template = new WalkthroughTemplate({ ...req.body, entityId: req.user?.entityId });
+        await template.save();
+        res.json(template);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/walkthrough-templates/:id', async (req, res) => {
+    try {
+        const template = await WalkthroughTemplate.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(template);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/walkthrough-templates/:id', async (req, res) => {
+    try {
+        await WalkthroughTemplate.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/walkthrough-records', async (req, res) => {
+    try {
+        let { templateId, vehicleId, date, mileage, data, maintenanceNote, status } = req.body;
+
+        // The frontend form only sends checklist answers inside `data` (keyed by field id),
+        // it does not send a top-level `mileage`. If the template has a field flagged as the
+        // mileage/odometer field (or a number field labeled "mileage"/"odometer" as a fallback
+        // for templates saved before that flag existed), pull the value out of `data` so it
+        // actually gets recorded and can be used to update the vehicle below.
+        if (!mileage && data && templateId) {
+            try {
+                const tpl = await WalkthroughTemplate.findById(templateId);
+                if (tpl && tpl.items) {
+                    const mileageItem = tpl.items.find(i => i.isMileageField) ||
+                        tpl.items.find(i => i.type === 'number' && /mileage|odometer/i.test(i.label || ''));
+                    if (mileageItem && data[mileageItem.id]) {
+                        mileage = data[mileageItem.id];
+                    }
+                }
+            } catch (lookupErr) {
+                console.error('Mileage field lookup failed', lookupErr);
+            }
+        }
+
+        if (status === 'draft') {
+            // Upsert a draft record (one draft per vehicle+template+date)
+            const startOfDay = new Date(date || Date.now());
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(startOfDay);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            let record = await WalkthroughRecord.findOne({
+                entityId: req.user?.entityId,
+                templateId,
+                vehicleId,
+                date: { $gte: startOfDay, $lte: endOfDay },
+                status: 'draft'
+            });
+
+            if (!record) {
+                record = new WalkthroughRecord({
+                    entityId: req.user?.entityId,
+                    templateId,
+                    vehicleId,
+                    date: date ? new Date(date) : new Date()
+                });
+            }
+
+            if (mileage !== undefined) record.mileage = Number(mileage);
+            if (data !== undefined) record.data = data;
+            if (maintenanceNote !== undefined) record.maintenanceNote = maintenanceNote;
+            record.status = 'draft';
+
+            await record.save();
+            return res.json({ success: true, record });
+        }
+
+        // Completed submission
+        const record = new WalkthroughRecord({
+            entityId: req.user?.entityId,
+            templateId,
+            vehicleId,
+            date: date ? new Date(date) : new Date(),
+            mileage: mileage !== undefined ? Number(mileage) : undefined,
+            data,
+            maintenanceNote,
+            status: 'completed'
+        });
+
+        await record.save();
+
+        // Persist mileage to the vehicle so Fleet Roster reflects the latest reading.
+        if (record.status === 'completed' && mileage) {
+            try {
+                const vehicleForMileage = await Vehicle.findById(vehicleId);
+                if (vehicleForMileage) {
+                    vehicleForMileage.lastKnownMileage = Number(mileage);
+                    await vehicleForMileage.save();
+                }
+            } catch (mileageErr) {
+                console.error('Failed to update vehicle mileage from walkthrough', mileageErr);
+            }
+        }
+
+        // Mechanic Routing / Ticket Generation
+        if (record.status === 'completed') {
+            const failedItems = [];
+            if (data) {
+                const tpl = await WalkthroughTemplate.findById(templateId);
+                if (tpl && tpl.items) {
+                    for (const item of tpl.items) {
+                        const val = data[item.id];
+                        if (item.type === 'boolean' && val === false) {
+                            failedItems.push(item.label);
+                        }
+                    }
+                }
+            }
+
+            if (maintenanceNote || failedItems.length > 0) {
+                const vehicle = await Vehicle.findById(vehicleId);
+                const noteLines = [];
+                if (failedItems.length > 0) noteLines.push(`Failed items: ${failedItems.join(', ')}`);
+                if (maintenanceNote) noteLines.push(maintenanceNote);
+                await Task.create({
+                    entityId: req.user?.entityId,
+                    title: `Walkthrough Issue - ${vehicle ? vehicle.truckNumber : vehicleId}`,
+                    description: noteLines.join('\n'),
+                    category: 'walkthrough-issue',
+                    referenceId: record._id
+                });
+            }
+        }
+
+        res.json({ success: true, record });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/walkthrough-records', async (req, res) => {
+    try {
+        const { templateId, vehicleId } = req.query;
+        const filter = { entityId: req.user?.entityId };
+        if (templateId) filter.templateId = templateId;
+        if (vehicleId) filter.vehicleId = vehicleId;
+        const records = await WalkthroughRecord.find(filter).sort('-date').limit(100);
+        res.json(records);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

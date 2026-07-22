@@ -1367,6 +1367,26 @@ app.delete('/api/walkthrough-templates/:id', async (req, res) => {
 app.post('/api/walkthrough-records', async (req, res) => {
     try {
         let { templateId, vehicleId, date, mileage, data, maintenanceNote, status } = req.body;
+
+        // The frontend form only sends checklist answers inside `data` (keyed by field id),
+        // it does not send a top-level `mileage`. If the template has a field flagged as the
+        // mileage/odometer field (or a number field labeled "mileage"/"odometer" as a fallback
+        // for templates saved before that flag existed), pull the value out of `data` so it
+        // actually gets recorded and can be used to update the vehicle below.
+        if (!mileage && data && templateId) {
+            try {
+                const tpl = await WalkthroughTemplate.findById(templateId);
+                if (tpl && tpl.items) {
+                    const mileageItem = tpl.items.find(i => i.isMileageField) ||
+                        tpl.items.find(i => i.type === 'number' && /mileage|odometer/i.test(i.label || ''));
+                    if (mileageItem && data[mileageItem.id]) {
+                        mileage = data[mileageItem.id];
+                    }
+                }
+            } catch (lookupErr) {
+                console.error('Mileage field lookup failed', lookupErr);
+            }
+        }
         
         if (status === 'draft') {
             let record = await WalkthroughRecord.findOne({
@@ -1417,6 +1437,19 @@ app.post('/api/walkthrough-records', async (req, res) => {
         });
 
         await record.save();
+
+        // Persist mileage to the vehicle so Fleet Roster reflects the latest reading.
+        if (record.status === 'completed' && mileage) {
+            try {
+                const vehicleForMileage = await Vehicle.findById(vehicleId);
+                if (vehicleForMileage) {
+                    vehicleForMileage.lastKnownMileage = Number(mileage);
+                    await vehicleForMileage.save();
+                }
+            } catch (mileageErr) {
+                console.error('Failed to update vehicle mileage from walkthrough', mileageErr);
+            }
+        }
 
         // Mechanic Routing / Ticket Generation
         if (record.status === 'completed') {

@@ -25,12 +25,15 @@ export default function FleetRoster() {
   // Core fields for both export formats: unit number, VIN, and last known mileage are the
   // must-haves; registration/DOT expiration are included too since they were asked for, but are
   // the first columns to drop if the export ever needs to be trimmed further.
+  const formatMileage = (value: number | string | null | undefined) =>
+    value ? `${Number(value).toLocaleString()} mi` : '--';
+
   const buildExportRows = () => {
     const selectedVehicles = vehicles.filter((v: any) => selectedExportIds.includes(v._id));
     return selectedVehicles.map((v: any) => ({
       'Truck Number': v.truckNumber || 'N/A',
       'VIN': v.vin || 'N/A',
-      'Last Known Mileage': v.lastKnownMileage ? v.lastKnownMileage.toLocaleString() : 'N/A',
+      'Last Known Mileage': v.lastKnownMileage ? formatMileage(v.lastKnownMileage) : 'N/A',
       'Registration Expiry': v.registrationExpiry ? new Date(v.registrationExpiry).toLocaleDateString() : 'N/A',
       'DOT Expiry': v.dotExpiry ? new Date(v.dotExpiry).toLocaleDateString() : 'N/A'
     }));
@@ -44,6 +47,7 @@ export default function FleetRoster() {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
+  // Give the browser a brief moment to finish rendering the new document before printing.
   const PRINT_DIALOG_DELAY_MS = 100;
 
   const buildExportHtml = (rows: Record<string, string>[], headers: string[]) => `
@@ -88,13 +92,11 @@ export default function FleetRoster() {
     try {
       printWindow.document.write(buildExportHtml(rows, headers));
       printWindow.document.close();
-      printWindow.onload = () => {
-        window.setTimeout(() => {
-          if (!printWindow.closed) {
-            printWindow.print();
-          }
-        }, PRINT_DIALOG_DELAY_MS);
-      };
+      window.setTimeout(() => {
+        if (!printWindow.closed) {
+          printWindow.print();
+        }
+      }, PRINT_DIALOG_DELAY_MS);
     } catch (error) {
       console.error('Failed to prepare export window', error);
       setExportError('Unable to prepare the PDF export window.');
@@ -430,7 +432,7 @@ export default function FleetRoster() {
                   <div className="text-sm font-medium text-[var(--ink)]">{v.makeModel || 'N/A'}</div>
                   <div className="text-xs text-[var(--steel)]">{v.vin || 'No VIN'}</div>
                 </td>
-                <td className="px-5 py-4 font-semibold text-[var(--ink)]">{v.lastKnownMileage ? `${v.lastKnownMileage.toLocaleString()} mi` : '--'}</td>
+                <td className="px-5 py-4 font-semibold text-[var(--ink)]">{formatMileage(v.lastKnownMileage)}</td>
                 <td className="px-5 py-4"><OilGauge pct={v.lastOilChange ? 50 : 0} /></td>
                 <td className="px-5 py-4 text-right flex gap-2 justify-end">
                   <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)}>MMR</Btn>
@@ -475,7 +477,7 @@ export default function FleetRoster() {
               </div>
               <div>
                 <span className="block text-xs text-[var(--steel-light)] mb-0.5">Last Known Mileage</span>
-                <span className="font-semibold text-[var(--ink)]">{v.lastKnownMileage ? `${v.lastKnownMileage.toLocaleString()} mi` : '--'}</span>
+                <span className="font-semibold text-[var(--ink)]">{formatMileage(v.lastKnownMileage)}</span>
               </div>
               <div>
                 <span className="block text-xs text-[var(--steel-light)] mb-1">Oil Life</span>

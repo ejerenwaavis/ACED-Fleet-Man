@@ -5,7 +5,8 @@ const itemSchema = new mongoose.Schema({
     label: { type: String, required: true },
     type: { type: String, enum: ['checkbox', 'text', 'number', 'select'], default: 'checkbox' },
     options: [{ type: String }], // For 'select' type
-    required: { type: Boolean, default: false }
+    required: { type: Boolean, default: false },
+    isMileageField: { type: Boolean, default: false } // Marks this field's value as the vehicle's odometer reading
 });
 
 const walkthroughTemplateSchema = new mongoose.Schema({

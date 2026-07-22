@@ -1,0 +1,1 @@
+self.__SSG_MANIFEST=new Set(["\u002Fbook\u002F[slug]","\u002Fjoin\u002F[token]","\u002Ftruck\u002F[id]"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()

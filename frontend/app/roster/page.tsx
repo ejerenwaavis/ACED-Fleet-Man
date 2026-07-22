@@ -71,12 +71,35 @@ export default function FleetRoster() {
   const [ocrWarning, setOcrWarning] = useState<string | null>(null);
 
   const handleOcrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
     
     setOcrLoading(true);
     setOcrWarning(null);
     try {
+      if (file.type === 'application/pdf') {
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+          
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 2.0 });
+          
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error("Canvas context error");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          
+          await page.render({ canvasContext: ctx, viewport } as any).promise;
+          
+          const imgBlob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+          if (!imgBlob) throw new Error("Conversion failed");
+          
+          file = new File([imgBlob], file.name.replace('.pdf', '.jpg'), { type: 'image/jpeg' });
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       const res = await apiFetch('/api/vehicles/ocr', {
@@ -96,6 +119,10 @@ export default function FleetRoster() {
       if (data.expiry) {
           const expiryInput = document.getElementsByName('registrationExpiry')[0] as HTMLInputElement;
           if (expiryInput) expiryInput.value = data.expiry;
+      }
+      if (data.dotExpiry) {
+          const dotExpiryInput = document.getElementsByName('dotExpiry')[0] as HTMLInputElement;
+          if (dotExpiryInput) dotExpiryInput.value = data.dotExpiry;
       }
 
       if (data.fallbackUsed) {
@@ -128,6 +155,8 @@ export default function FleetRoster() {
       ]} />
       
       <Input label="Last Known Mileage" name="lastKnownMileage" type="number" defaultValue={defaultValues?.lastKnownMileage} />
+      <Input label="Registration Expiry Date" name="registrationExpiry" type="date" defaultValue={defaultValues?.registrationExpiry ? new Date(defaultValues.registrationExpiry).toISOString().split('T')[0] : ''} />
+      <Input label="DOT Inspection Expiry Date" name="dotExpiry" type="date" defaultValue={defaultValues?.dotExpiry ? new Date(defaultValues.dotExpiry).toISOString().split('T')[0] : ''} />
       <div className="mt-6 mb-4 border-t border-[var(--hairline)] pt-4 relative">
         <div className="flex flex-col gap-1 mb-3">
             <div className="flex justify-between items-center">

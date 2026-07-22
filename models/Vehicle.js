@@ -15,7 +15,8 @@ const vehicleSchema = new mongoose.Schema({
     registrationUrl: { type: String },
     dotInspectionUrl: { type: String },
     insuranceUrl: { type: String },
-    registrationExpiry: { type: Date }
+    registrationExpiry: { type: Date },
+    dotExpiry: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

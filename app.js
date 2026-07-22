@@ -896,6 +896,7 @@ app.post('/api/vehicles/ocr', uploadTemp.single('file'), async (req, res) => {
         let vin = '';
         let licensePlate = '';
         let expiry = '';
+        let dotExpiry = '';
         let fallbackUsed = false;
         
         // Try OpenAI first if API key is present
@@ -921,7 +922,7 @@ app.post('/api/vehicles/ocr', uploadTemp.single('file'), async (req, res) => {
                             {
                                 role: 'user',
                                 content: [
-                                    { type: 'text', text: 'Extract the VIN, License Plate, and Expiry Date from this vehicle document. Return ONLY a valid JSON object with keys "vin", "licensePlate", and "expiry". Format expiry as YYYY-MM-DD. If a field is not found, leave it as an empty string.' },
+                                    { type: 'text', text: 'Extract the VIN, License Plate, Registration Expiry Date, and DOT Inspection Expiry Date from this vehicle document. Return ONLY a valid JSON object with keys "vin", "licensePlate", "expiry", and "dotExpiry". Format expiry dates as YYYY-MM-DD. If a field is not found, leave it as an empty string.' },
                                     { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } }
                                 ]
                             }
@@ -938,6 +939,7 @@ app.post('/api/vehicles/ocr', uploadTemp.single('file'), async (req, res) => {
                     vin = parsed.vin || '';
                     licensePlate = parsed.licensePlate || '';
                     expiry = parsed.expiry || '';
+                    dotExpiry = parsed.dotExpiry || '';
                     openAiSuccess = true;
                 } else {
                     console.error('OpenAI Error:', await response.text());
@@ -958,15 +960,14 @@ app.post('/api/vehicles/ocr', uploadTemp.single('file'), async (req, res) => {
 
             const dateMatches = text.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g);
             if (dateMatches) {
-                let maxDate = new Date(0);
-                for (let d of dateMatches) {
-                    const parsed = new Date(d);
-                    if (!isNaN(parsed) && parsed > maxDate && parsed.getFullYear() < 2100) {
-                        maxDate = parsed;
+                // Heuristics: pick the latest date found
+                const dates = dateMatches.map(d => new Date(d)).filter(d => !isNaN(d.getTime()));
+                if (dates.length > 0) {
+                    dates.sort((a, b) => b - a);
+                    expiry = dates[0].toISOString().split('T')[0];
+                    if (dates.length > 1) {
+                        dotExpiry = dates[1].toISOString().split('T')[0];
                     }
-                }
-                if (maxDate > new Date(0)) {
-                    expiry = maxDate.toISOString().split('T')[0];
                 }
             }
 
@@ -978,7 +979,7 @@ app.post('/api/vehicles/ocr', uploadTemp.single('file'), async (req, res) => {
         }
 
         fs.unlinkSync(filePath);
-        res.json({ vin, licensePlate, expiry, fallbackUsed });
+        res.json({ vin, licensePlate, expiry, dotExpiry, fallbackUsed });
     } catch (err) {
         if (req.file && require('fs').existsSync(req.file.path)) {
             require('fs').unlinkSync(req.file.path);
@@ -1002,7 +1003,7 @@ app.post('/api/vehicles', uploadVehicleDocs.fields([
     { name: 'insurance', maxCount: 1 }
 ]), async (req, res) => {
     try {
-        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry } = req.body;
+        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry, dotExpiry } = req.body;
         
         const vehicleData = {
             truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status,
@@ -1011,6 +1012,9 @@ app.post('/api/vehicles', uploadVehicleDocs.fields([
 
         if (registrationExpiry) {
             vehicleData.registrationExpiry = new Date(registrationExpiry);
+        }
+        if (dotExpiry) {
+            vehicleData.dotExpiry = new Date(dotExpiry);
         }
 
         if (req.files) {
@@ -1073,7 +1077,7 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
     { name: 'insurance', maxCount: 1 }
 ]), async (req, res) => {
     try {
-        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry } = req.body;
+        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry, dotExpiry } = req.body;
         
         const vehicleData = {
             truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status,
@@ -1082,6 +1086,9 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
 
         if (registrationExpiry) {
             vehicleData.registrationExpiry = new Date(registrationExpiry);
+        }
+        if (dotExpiry) {
+            vehicleData.dotExpiry = new Date(dotExpiry);
         }
 
         if (req.files) {

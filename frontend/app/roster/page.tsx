@@ -22,7 +22,7 @@ export default function FleetRoster() {
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
 
   // Core fields for both export formats: unit number, VIN, and last known mileage are the
-  // must-haves; registration/DOT expiry are included too since they were asked for, but are
+  // must-haves; registration/DOT expiration are included too since they were asked for, but are
   // the first columns to drop if the export ever needs to be trimmed further.
   const buildExportRows = () => {
     const selectedVehicles = vehicles.filter((v: any) => selectedExportIds.includes(v._id));
@@ -35,9 +35,17 @@ export default function FleetRoster() {
     }));
   };
 
+  const escapeHtml = (value: unknown) =>
+    String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
   const handleExportPdf = () => {
     const rows = buildExportRows();
-    if (!rows.length) { alert('No data to export'); return; }
+    if (!rows.length) { alert('Please select vehicles to export'); return; }
     const headers = Object.keys(rows[0]);
     const printWindow = window.open('', '_blank');
     printWindow?.document.write(`
@@ -57,13 +65,13 @@ export default function FleetRoster() {
           <h1>Fleet Roster Export</h1>
           <p class="meta">Generated ${new Date().toLocaleString()} &middot; ${rows.length} vehicle(s)</p>
           <table>
-            <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+            <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
             <tbody>
-              ${rows.map((r: any) => `<tr>${headers.map(h => `<td>${r[h]}</td>`).join('')}</tr>`).join('')}
+              ${rows.map((r: any) => `<tr>${headers.map(h => `<td>${escapeHtml(r[h])}</td>`).join('')}</tr>`).join('')}
             </tbody>
           </table>
         </body>
-        <script>window.onload = function() { window.print(); }</script>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 100); }</script>
       </html>
     `);
     printWindow?.document.close();

@@ -4,7 +4,9 @@ import React, { useEffect, useState } from "react";
 import { Handshake, CheckCircle2, XCircle, Clock, ShieldCheck, Mail, CheckSquare, Square } from "lucide-react";
 import { PageHeader, Btn } from "@/components/fleet/UI";
 import { apiFetch } from "@/lib/api";
+import { exportToCsv } from "@/lib/exportCsv";
 import { useAuth } from "@/components/fleet/AuthProvider";
+import { Download } from "lucide-react";
 
 export default function PartnershipsPage() {
   const [partnerships, setPartnerships] = useState([]);
@@ -61,6 +63,16 @@ export default function PartnershipsPage() {
         eyebrow="Network" 
         title="Partnerships" 
         subtitle="Manage your fleet's active bonds and pending requests"
+        right={<Btn variant="ghost" icon={Download} onClick={() => {
+            const dataToExport = partnerships.map((p: any) => ({
+                'Partner Name': (p.dspEntityId?._id === user?.entityId ? p.mspEntityId : p.dspEntityId)?.name || 'Unknown',
+                'Status': p.status,
+                'Terms': p.terms || 'Standard',
+                'Auto Assign': p.defaultAutoAssign ? 'Yes' : 'No',
+                'Initiated By': p.initiatedBy === user?.entityId ? 'You' : 'Them'
+            }));
+            exportToCsv('Partnerships_Export', dataToExport);
+        }}>Export CSV</Btn>}
       />
 
       <div className="space-y-6">

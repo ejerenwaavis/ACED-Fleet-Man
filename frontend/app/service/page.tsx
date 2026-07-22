@@ -5,7 +5,9 @@ import { Truck, Wrench, AlertTriangle, CheckCircle2, MapPin, ExternalLink, Plus,
 import { PageHeader, Btn, JobStatusPill, Modal, Input } from "@/components/fleet/UI";
 import { NewMaintenanceRequestModal } from "@/components/fleet/NewMaintenanceRequestModal";
 import { apiFetch } from "@/lib/api";
+import { exportToCsv } from "@/lib/exportCsv";
 import { useAuth } from "@/components/fleet/AuthProvider";
+import { Download } from "lucide-react";
 
 export default function ServicePage() {
   const { user } = useAuth();
@@ -172,6 +174,18 @@ export default function ServicePage() {
                 return <option key={m} value={m}>{date.toLocaleString('default', { month: 'short', year: 'numeric' })}</option>;
               })}
             </select>
+            <Btn variant="ghost" icon={Download} onClick={() => {
+              const dataToExport = filteredRequests.map((r: any) => ({
+                'Date': new Date(r.createdAt).toLocaleDateString(),
+                'Title': r.title,
+                'Type': r.requestType,
+                'Asset ID': r.vehicleId || r.deviceId?.deviceId || 'N/A',
+                'Status': r.status,
+                'Priority': r.priority,
+                'Mechanic': r.assignedMechanicId?.displayName || 'Unassigned'
+              }));
+              exportToCsv('Maintenance_Requests_Export', dataToExport);
+            }}>Export CSV</Btn>
             <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New Request</Btn>
           </div>
         }

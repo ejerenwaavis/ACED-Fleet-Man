@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/fleet/AppShell";
 import { AuthProvider } from "@/components/fleet/AuthProvider";
+import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk" });
@@ -22,9 +23,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
         <AuthProvider>
-          <AppShell>
-            {children}
-          </AppShell>
+          <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-[var(--canvas)]"><div className="text-[var(--steel)]">Loading Application...</div></div>}>
+            <AppShell>
+              {children}
+            </AppShell>
+          </Suspense>
         </AuthProvider>
       </body>
     </html>

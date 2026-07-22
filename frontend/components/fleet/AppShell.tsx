@@ -1,19 +1,38 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { Truck, ClipboardList, FileText, LayoutGrid, Search, Bell, X, Settings, Wrench, Compass, Handshake, Menu } from "lucide-react";
+import { Truck, ClipboardList, FileText, LayoutGrid, Search, Bell, X, Settings, Wrench, Compass, Handshake, Menu, TabletSmartphone } from "lucide-react";
 import { NavItem } from "./UI";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { apiFetch } from "@/lib/api";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
 
   const { user } = useAuth();
+
+  // Debounce search query to URL
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const currentQ = searchParams.get('q') || '';
+      if (searchQuery !== currentQ) {
+         const params = new URLSearchParams(searchParams);
+         if (searchQuery) {
+           params.set('q', searchQuery);
+         } else {
+           params.delete('q');
+         }
+         router.push(`${pathname}?${params.toString()}`);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, pathname, router, searchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -50,11 +69,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { key: "/", label: "Dispatch", icon: LayoutGrid },
     { key: "/service", label: "Service & Repairs", icon: Wrench },
     { key: "/roster", label: "Fleet roster", icon: Truck },
-    { key: "/directory", label: "Network", icon: Compass },
+    { key: "/directory", label: "Service Directory", icon: Compass },
     { key: "/partnerships", label: "Partnerships", icon: Handshake },
     { key: "/mechanic", label: "Job Board", icon: Wrench },
     { key: "/walkthroughs", label: "Walkthroughs", icon: ClipboardList },
     { key: "/records", label: "Maintenance records", icon: FileText },
+    { key: "/devices", label: "Assets & Devices", icon: TabletSmartphone },
     { key: "/settings", label: "Settings", icon: Settings },
   ];
 
@@ -65,7 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (n.key === '/settings' && role === 'driver') return false;
 
     if (entityType === 'msp') {
-      if (['/', '/roster', '/directory', '/walkthroughs', '/records', '/service'].includes(n.key)) return false;
+      if (['/', '/roster', '/directory', '/walkthroughs', '/records', '/service', '/devices'].includes(n.key)) return false;
     } else {
       if (n.key === '/mechanic') return false;
     }
@@ -96,9 +116,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button onClick={() => setSearchOpen(true)} className="w-9 h-9 rounded-lg border border-[var(--hairline)] flex items-center justify-center">
             <Search className="w-4 h-4 text-[var(--steel)]" />
           </button>
-          <button className="w-9 h-9 rounded-lg border border-[var(--hairline)] flex items-center justify-center">
-            <Bell className="w-4 h-4 text-[var(--steel)]" />
-          </button>
         </div>
       </div>
 
@@ -109,6 +126,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Search className="w-5 h-5 text-[var(--steelLight)] shrink-0" />
             <input 
               autoFocus 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search trucks, routes, drivers..." 
               className="flex-1 bg-transparent border-none focus:outline-none text-base"
             />
@@ -169,13 +188,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg w-80 bg-[var(--canvas)]">
             <Search className="w-4 h-4 text-[var(--steel-light)]" />
             <input 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search trucks, routes, drivers…" 
               className="bg-transparent border-none focus:outline-none text-sm w-full text-[var(--ink)] placeholder:text-[var(--steel-light)]"
             />
           </div>
-          <button className="w-9 h-9 rounded-lg border border-[var(--hairline)] flex items-center justify-center bg-white hover:bg-gray-50 cursor-pointer">
-            <Bell className="w-4 h-4 text-[var(--steel)]" />
-          </button>
         </div>
         
         <main className="p-4 lg:p-8 flex-1 w-full max-w-full overflow-x-hidden">

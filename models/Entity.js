@@ -14,6 +14,7 @@ const entitySchema = new mongoose.Schema({
     
     // MSP-only fields
     specialties: [{ type: String }],
+    address: { type: String },
     serviceRadius: { type: Number },
     isVerified: { type: Boolean, default: false },
     autoAcceptRules: { type: Boolean, default: false },
@@ -25,7 +26,11 @@ const entitySchema = new mongoose.Schema({
     blacklistStatus: { type: String, enum: ['active', 'suspended', 'blacklisted'], default: 'active' },
     
     // Directory visibility toggle
-    listedInDirectory: { type: Boolean, default: true }
+    listedInDirectory: { type: Boolean, default: true },
+    
+    // Public Booking / Landing Page
+    publicSlug: { type: String, unique: true, sparse: true },
+    publicProfileEnabled: { type: Boolean, default: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Entity', entitySchema);

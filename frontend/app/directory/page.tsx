@@ -66,14 +66,14 @@ export default function DirectoryPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-[var(--steel)]">Loading mechanics directory...</div>;
+  if (loading) return <div className="p-8 text-center text-[var(--steel)]">Loading service provider directory...</div>;
 
   return (
     <div className="h-full flex flex-col max-w-6xl mx-auto">
       <PageHeader 
-        eyebrow="Network" 
-        title="Discover Mechanics" 
-        subtitle="Find and partner with top-rated mechanic shops in your area"
+        eyebrow="Service Directory" 
+        title="Discover Service Providers" 
+        subtitle="Find and partner with top-rated service providers and professionals in your area"
       />
 
       <div className="mb-6 flex gap-4">

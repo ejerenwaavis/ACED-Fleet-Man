@@ -144,13 +144,20 @@ export function AutoGenerateMmrModal({ isOpen, onClose }: AutoGenerateMmrModalPr
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Auto-Generate Fleet MMRs" maxWidth="max-w-4xl">
-      <div className="space-y-4">
+        <div className="space-y-4">
         {error && (
           <div className="p-3 text-sm rounded-lg flex gap-2 items-start border bg-[var(--red-bg)] text-[var(--red)] border-[var(--red)]">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="flex-1">{error}</span>
           </div>
         )}
+
+        <div className="p-3 text-sm rounded-lg flex gap-2 items-start border bg-blue-50 text-blue-800 border-blue-200">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />
+          <span className="flex-1">
+            <strong>Smart Generation Active:</strong> This report automatically pulls mileage from the latest Walkthroughs and maintenance data <em>only</em> from fully <strong>Completed/Closed</strong> maintenance tickets during the selected month.
+          </span>
+        </div>
 
         <div className="grid grid-cols-3 gap-4">
           <Input label="Record Month (YYYY-MM)" type="month" value={recordMonth} onChange={(e: any) => setRecordMonth(e.target.value)} required placeholder="2023-10" />

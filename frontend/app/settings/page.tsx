@@ -12,6 +12,12 @@ export default function Settings() {
   const API_BASE = getApiBase();
   const [requests, setRequests] = useState<any[]>([]);
   const [fleetUsers, setFleetUsers] = useState<any[]>([]);
+  
+  // Invite State
+  const [inviteRole, setInviteRole] = useState('driver');
+  const [invitePhone, setInvitePhone] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResult, setInviteResult] = useState<any>(null);
 
   const fetchRequests = () => {
     apiFetch(`/api/onboarding/requests`)
@@ -69,7 +75,25 @@ export default function Settings() {
     }
   };
 
-
+  const handleGenerateInvite = async () => {
+    setInviteLoading(true);
+    setInviteResult(null);
+    try {
+      const res = await apiFetch(`/api/invites/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: inviteRole, phone: invitePhone })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setInviteResult(data);
+      setInvitePhone('');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -177,6 +201,64 @@ export default function Settings() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">
+        <div className="p-5 border-b border-[var(--hairline)]">
+          <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
+            <Plus className="w-5 h-5 text-[var(--signal)]" /> Invite Team Members
+          </h3>
+          <p className="text-sm text-[var(--steel-light)] mt-1">Generate an invite link or send an SMS invite to a new member.</p>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-[var(--ink)] mb-1">Role</label>
+              <select 
+                className="w-full h-10 border border-[var(--hairline)] rounded-lg px-3 bg-white"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+              >
+                <option value="driver">Driver</option>
+                <option value="mechanic">Mechanic</option>
+                <option value="manager">Manager</option>
+                {user?.role === 'admin' && <option value="admin">Admin</option>}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-[var(--ink)] mb-1">Phone Number (Optional)</label>
+              <Input 
+                placeholder="e.g. +1234567890" 
+                value={invitePhone} 
+                onChange={(e: any) => setInvitePhone(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <Btn variant="primary" onClick={handleGenerateInvite} disabled={inviteLoading}>
+            {inviteLoading ? 'Generating...' : (invitePhone ? 'Send SMS Invite' : 'Generate Invite Link')}
+          </Btn>
+
+          {inviteResult && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="font-semibold text-green-800 mb-2">Invite Generated Successfully!</div>
+              <p className="text-sm text-green-700 mb-2">
+                Share this link with the user to allow them to join as a {inviteRole}:
+              </p>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={inviteResult.inviteLink} 
+                  className="flex-1 p-2 text-sm border border-green-300 rounded bg-white"
+                />
+                <Btn variant="outline" onClick={() => navigator.clipboard.writeText(inviteResult.inviteLink)}>
+                  Copy
+                </Btn>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
     </div>

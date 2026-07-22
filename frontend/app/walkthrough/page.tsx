@@ -6,6 +6,7 @@ import { PageHeader, Btn, Input } from "@/components/fleet/UI";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import Link from "next/link";
+import { VehicleCarousel } from "@/components/fleet/VehicleCarousel";
 
 export default function DynamicWalkthrough() {
   const router = useRouter();
@@ -19,8 +20,6 @@ export default function DynamicWalkthrough() {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const isFetchingDraft = useRef(false);
 
   useEffect(() => {
@@ -52,36 +51,6 @@ export default function DynamicWalkthrough() {
         .catch(console.error);
     }
   }, []);
-
-  // Intersection Observer for swipe-to-select
-  useEffect(() => {
-    if (!scrollRef.current || vehicles.length === 0) return;
-
-    // Disconnect old observer before creating a new one
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-            const vId = entry.target.getAttribute('data-id');
-            if (vId && vId !== selectedVehicle) {
-              setSelectedVehicle(vId);
-            }
-          }
-        });
-      },
-      {
-        root: scrollRef.current,
-        threshold: 0.6,
-      }
-    );
-
-    const cards = scrollRef.current.querySelectorAll('.vehicle-card');
-    cards.forEach(c => observerRef.current?.observe(c));
-
-    return () => observerRef.current?.disconnect();
-  }, [vehicles, selectedVehicle]);
 
   // Fetch Draft on Vehicle Selection
   useEffect(() => {
@@ -174,35 +143,29 @@ export default function DynamicWalkthrough() {
 
       <div className="space-y-6">
         <div className="mb-8">
-          <label className="block text-sm font-semibold text-[var(--ink)] mb-3 px-1">Select Vehicle for Walkthrough</label>
-          <div 
-            ref={scrollRef}
-            className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
-          >
-            {vehicles.map((v: any) => (
-              <button
-                key={v._id}
-                data-id={v._id}
-                onClick={() => {
-                  setSelectedVehicle(v._id);
-                  // Optional: scroll into view smoothly when clicked
-                  const el = scrollRef.current?.querySelector(`[data-id="${v._id}"]`);
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                }}
-                className={`vehicle-card snap-center shrink-0 w-64 p-5 rounded-2xl border-2 transition-all flex flex-col items-start text-left ${
-                  selectedVehicle === v._id 
-                    ? 'border-[var(--signal)] bg-[var(--signal-dim)] shadow-md scale-[1.02]' 
-                    : 'border-[var(--hairline)] bg-[var(--surface)] hover:border-[var(--signal)]/50'
-                }`}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <label className="block text-sm font-semibold text-[var(--ink)] flex items-center gap-3">
+              Select Vehicle for Walkthrough
+              <select 
+                value={selectedVehicle || ""}
+                onChange={(e) => setSelectedVehicle(e.target.value)}
+                className="text-sm font-medium bg-[var(--surface)] border border-[var(--hairline)] rounded-md px-2 py-1 outline-none focus:border-[var(--signal)] cursor-pointer shadow-sm"
               >
-                <div className="flex items-center justify-between w-full mb-3">
-                  <span className="font-mono text-2xl font-bold text-[var(--ink)]">{v.truckNumber}</span>
-                  <div className={`w-3 h-3 rounded-full shadow-sm ${v.status === 'active' ? 'bg-[var(--green)]' : v.status === 'maintenance' ? 'bg-[var(--amber)]' : 'bg-[var(--red)]'}`} title={v.status} />
-                </div>
-                <div className="text-sm font-medium text-[var(--ink-2)] mb-1">{v.make || 'Unknown Make'} {v.model || 'Unknown Model'}</div>
-                <div className="text-xs text-[var(--steel)] bg-[var(--canvas)] px-2 py-1 rounded-md mt-2">Route {v.routeNumber || 'N/A'}</div>
-              </button>
-            ))}
+                <option value="" disabled>Choose...</option>
+                {vehicles.map((v: any) => (
+                  <option key={v._id} value={v._id}>{v.truckNumber}</option>
+                ))}
+                <option value="new">+ Add New Truck</option>
+              </select>
+            </label>
+            <span className="text-xs font-normal text-[var(--steel)] hidden sm:block">Scroll, drag, or use arrows to snap</span>
+          </div>
+          <div className="-mx-4 px-4 overflow-hidden relative">
+            <VehicleCarousel 
+              vehicles={vehicles} 
+              selectedId={selectedVehicle} 
+              onSelect={setSelectedVehicle} 
+            />
           </div>
         </div>
 

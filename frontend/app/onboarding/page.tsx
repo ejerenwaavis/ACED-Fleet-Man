@@ -10,6 +10,8 @@ export default function OnboardingPage() {
   const [activeTab, setActiveTab] = useState<'select' | 'create' | 'join'>('select');
   const [entityName, setEntityName] = useState("");
   const [entityType, setEntityType] = useState<'dsp' | 'msp'>('dsp');
+  const [description, setDescription] = useState("");
+  const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -22,7 +24,7 @@ export default function OnboardingPage() {
       const res = await apiFetch(`/api/onboarding/create-entity`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entityName, entityType })
+        body: JSON.stringify({ entityName, entityType, description, address })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -158,38 +160,71 @@ export default function OnboardingPage() {
         )}
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-[var(--ink)] mb-2">I am representing a:</label>
-            <div className="flex flex-col gap-2 mb-4">
-              <label className="flex items-center gap-2 text-sm cursor-pointer bg-[var(--surface)] p-3 rounded-lg border border-[var(--hairline)] hover:border-[var(--signal)]">
-                <input type="radio" name="entityType" value="dsp" checked={entityType === 'dsp'} onChange={() => setEntityType('dsp')} className="w-4 h-4 text-[var(--signal)]" />
-                Delivery Service Provider (DSP)
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer bg-[var(--surface)] p-3 rounded-lg border border-[var(--hairline)] hover:border-[var(--signal)]">
-                <input type="radio" name="entityType" value="msp" checked={entityType === 'msp'} onChange={() => setEntityType('msp')} className="w-4 h-4 text-[var(--signal)]" />
-                Mechanic Repair Shop (MSP)
-              </label>
+          {activeTab === 'create' && (
+            <div>
+              <label className="block text-sm font-semibold text-[var(--ink)] mb-2">I am representing a:</label>
+              <div className="flex flex-col gap-2 mb-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer bg-[var(--surface)] p-3 rounded-lg border border-[var(--hairline)] hover:border-[var(--signal)]">
+                  <input 
+                    type="radio" name="entityType" value="dsp" 
+                    checked={entityType === 'dsp'} onChange={() => setEntityType('dsp')}
+                    className="w-4 h-4 text-[var(--signal)]"
+                  />
+                  Delivery Service Provider (DSP)
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer bg-[var(--surface)] p-3 rounded-lg border border-[var(--hairline)] hover:border-[var(--signal)]">
+                  <input 
+                    type="radio" name="entityType" value="msp" 
+                    checked={entityType === 'msp'} onChange={() => setEntityType('msp')}
+                    className="w-4 h-4 text-[var(--signal)]"
+                  />
+                  Service Provider (Mechanic, Handyman, etc.)
+                </label>
+              </div>
             </div>
-          </div>
-
+          )}
+          
           <div>
             <label className="block text-sm font-semibold text-[var(--ink)] mb-1.5">Fleet / Entity Name</label>
             <Input 
-              placeholder={activeTab === 'create' ? "e.g. Acme Logistics" : "Enter fleet name"} 
-              value={entityName}
+              placeholder={activeTab === 'create' ? "e.g. Acme Logistics" : "Enter fleet name"}
+              value={entityName} 
               onChange={(e: any) => setEntityName(e.target.value)}
               disabled={loading || !!successMsg}
               className="h-12 text-lg"
             />
           </div>
 
+          {activeTab === 'create' && entityType === 'msp' && (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-[var(--ink)] mb-1.5">Short Description</label>
+                <Input 
+                  placeholder="e.g. Professional fleet maintenance and repair services."
+                  value={description} 
+                  onChange={(e: any) => setDescription(e.target.value)}
+                  disabled={loading || !!successMsg}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[var(--ink)] mb-1.5">Location / Address</label>
+                <Input 
+                  placeholder="e.g. 123 Main St, Springfield"
+                  value={address} 
+                  onChange={(e: any) => setAddress(e.target.value)}
+                  disabled={loading || !!successMsg}
+                />
+              </div>
+            </>
+          )}
+
           <Btn 
             variant="primary" 
             className="w-full h-12 text-lg mt-4 justify-center" 
-            onClick={activeTab === 'create' ? handleCreate : handleJoin}
+            onClick={activeTab === 'create' ? handleCreate : handleJoin} 
             disabled={loading || !!successMsg}
           >
-            {loading ? 'Processing...' : (activeTab === 'create' ? 'Create Fleet' : 'Request Access')}
+            {loading ? "Processing..." : activeTab === 'create' ? "Create Fleet" : "Request Access"}
           </Btn>
         </div>
       </div>

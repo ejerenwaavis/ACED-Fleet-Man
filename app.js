@@ -25,11 +25,14 @@ const WeekendWalkthrough = require('./models/WeekendWalkthrough');
 const WalkthroughTemplate = require('./models/WalkthroughTemplate');
 const WalkthroughRecord = require('./models/WalkthroughRecord');
 const Vehicle = require('./models/Vehicle');
+const Device = require('./models/Device');
 const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
 const Entity = require('./models/Entity');
 const Partnership = require('./models/Partnership');
 const ActivityLog = require('./models/ActivityLog');
+const Invite = require('./models/Invite');
+const { sendSms } = require('./lib/smsService');
 const QRCode = require('qrcode');
 
 // 2. const app = express()
@@ -195,11 +198,17 @@ app.post('/api/onboarding/create-entity', async (req, res) => {
     if (req.user.role !== 'unassigned') return res.status(400).json({ error: 'User is already assigned to an entity' });
     
     try {
-        const { entityName, entityType } = req.body;
+        const { entityName, entityType, description, address } = req.body;
         if (!entityName) return res.status(400).json({ error: 'Entity name required' });
         if (!entityType || !['dsp', 'msp'].includes(entityType)) return res.status(400).json({ error: 'Valid entityType (dsp or msp) required' });
 
-        const newEntity = await Entity.create({ name: entityName, entityType, contactEmail: req.user.email });
+        const newEntity = await Entity.create({ 
+            name: entityName, 
+            entityType, 
+            contactEmail: req.user.email,
+            description,
+            address 
+        });
         
         req.user.entityId = newEntity._id;
         req.user.role = 'admin';
@@ -288,6 +297,125 @@ const isManagerOrAdmin = (req, res, next) => {
     }
     res.status(401).json({ error: 'Unauthorized' });
 };
+
+// --- Invite APIs ---
+app.post('/api/invites/generate', isAuthenticated, async (req, res) => {
+    // Only admins or managers can generate invites
+    if (!['admin', 'manager'].includes(req.user.role)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    try {
+        const { role, phone } = req.body;
+        if (!['admin', 'manager', 'driver', 'mechanic'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role specified' });
+        }
+        
+        const invite = await Invite.create({
+            senderId: req.user._id,
+            entityId: req.user.entityId,
+            role
+        });
+        
+        const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/join/${invite.token}`;
+        
+        // If a phone number was provided, send an SMS via our mock service
+        if (phone) {
+            const entity = await Entity.findById(req.user.entityId);
+            const message = `You've been invited to join ${entity.name} on Fleetman as a ${role}. Click here to join: ${inviteLink}`;
+            await sendSms(phone, message);
+        }
+        
+        res.json({ success: true, inviteLink, token: invite.token });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/invites/validate/:token', isAuthenticated, async (req, res) => {
+    try {
+        const invite = await Invite.findOne({ token: req.params.token, status: 'pending' }).populate('entityId');
+        
+        if (!invite || invite.isExpired()) {
+            return res.status(400).json({ error: 'Invite link is invalid or expired.' });
+        }
+        
+        if (req.user.entityId) {
+            return res.status(400).json({ error: 'You are already part of an organization.' });
+        }
+        
+        // Claim the invite
+        req.user.entityId = invite.entityId._id;
+        req.user.role = invite.role;
+        await req.user.save();
+        
+        invite.status = 'accepted';
+        invite.claimedBy = req.user._id;
+        await invite.save();
+        
+        res.json({ success: true, entity: invite.entityId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/invites/:token', async (req, res) => {
+    try {
+        const invite = await Invite.findOne({ token: req.params.token, status: 'pending' }).populate('entityId', 'name');
+        
+        if (!invite || invite.isExpired()) {
+            return res.status(404).json({ error: 'Invite not found or expired' });
+        }
+        
+        res.json({
+            entityName: invite.entityId.name,
+            role: invite.role
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Public APIs ---
+app.get('/api/public/entity/:slug', async (req, res) => {
+    try {
+        const entity = await Entity.findOne({ publicSlug: req.params.slug, publicProfileEnabled: true });
+        if (!entity) return res.status(404).json({ error: 'Public profile not found or disabled.' });
+        
+        // Strip sensitive info
+        res.json({
+            _id: entity._id,
+            name: entity.name,
+            entityType: entity.entityType,
+            description: entity.description,
+            address: entity.address,
+            specialties: entity.specialties,
+            workingHours: entity.workingHours
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/public/vehicles/:id', async (req, res) => {
+    try {
+        const vehicle = await Vehicle.findById(req.params.id).populate('entityId', 'name');
+        if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+        
+        // Strip sensitive info (only basic public info)
+        res.json({
+            _id: vehicle._id,
+            truckNumber: vehicle.truckNumber,
+            vin: vehicle.vin ? `***${vehicle.vin.slice(-4)}` : 'N/A', // Mask VIN
+            dotInspectionExpiry: vehicle.dotInspectionExpiry,
+            registrationExpiry: vehicle.registrationExpiry,
+            entityName: vehicle.entityId ? vehicle.entityId.name : 'Unknown Entity'
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 // --- Mechanic APIs ---
 app.get('/api/mechanic/settings', isAuthenticated, async (req, res) => {
@@ -756,6 +884,110 @@ app.put('/api/users/:id/role', async (req, res) => {
 // --- Fleet Management Routes ---
 const uploadVehicleDocs = multer({ dest: 'uploads/' });
 
+app.post('/api/vehicles/ocr', uploadTemp.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const fs = require('fs');
+        const filePath = req.file.path;
+        
+        let vin = '';
+        let licensePlate = '';
+        let expiry = '';
+        let fallbackUsed = false;
+        
+        // Try OpenAI first if API key is present
+        const openAiKey = process.env.OPEN_AI_API;
+        let openAiSuccess = false;
+        
+        if (openAiKey) {
+            try {
+                const base64Image = fs.readFileSync(filePath, { encoding: 'base64' });
+                const mimeType = req.file.mimetype || 'image/jpeg';
+                
+                // Using dynamic import for node-fetch if global fetch is not available (Node < 18), but Node 18+ has fetch.
+                // Assuming Node 18+ because Next.js 14 requires it.
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${openAiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4o',
+                        messages: [
+                            {
+                                role: 'user',
+                                content: [
+                                    { type: 'text', text: 'Extract the VIN, License Plate, and Expiry Date from this vehicle document. Return ONLY a valid JSON object with keys "vin", "licensePlate", and "expiry". Format expiry as YYYY-MM-DD. If a field is not found, leave it as an empty string.' },
+                                    { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } }
+                                ]
+                            }
+                        ],
+                        response_format: { type: "json_object" },
+                        max_tokens: 300
+                    })
+                });
+                
+                if (response.ok) {
+                    const jsonRes = await response.json();
+                    const resultText = jsonRes.choices[0].message.content;
+                    const parsed = JSON.parse(resultText);
+                    vin = parsed.vin || '';
+                    licensePlate = parsed.licensePlate || '';
+                    expiry = parsed.expiry || '';
+                    openAiSuccess = true;
+                } else {
+                    console.error('OpenAI Error:', await response.text());
+                }
+            } catch (openAiErr) {
+                console.error('OpenAI Exception:', openAiErr);
+            }
+        }
+        
+        // Fallback to Tesseract
+        if (!openAiSuccess) {
+            fallbackUsed = true;
+            const Tesseract = require('tesseract.js');
+            const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
+            
+            const vinMatch = text.match(/\b[A-HJ-NPR-Z0-9]{17}\b/i);
+            if (vinMatch) vin = vinMatch[0].toUpperCase();
+
+            const dateMatches = text.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g);
+            if (dateMatches) {
+                let maxDate = new Date(0);
+                for (let d of dateMatches) {
+                    const parsed = new Date(d);
+                    if (!isNaN(parsed) && parsed > maxDate && parsed.getFullYear() < 2100) {
+                        maxDate = parsed;
+                    }
+                }
+                if (maxDate > new Date(0)) {
+                    expiry = maxDate.toISOString().split('T')[0];
+                }
+            }
+
+            const plateRegex = /(?:PLATE|LIC|LIC NO|LIC\.?|TAG)[^\w]*([A-Z0-9]{2,8})/i;
+            const plateMatch = text.match(plateRegex);
+            if (plateMatch && plateMatch[1]) {
+                licensePlate = plateMatch[1].toUpperCase();
+            }
+        }
+
+        fs.unlinkSync(filePath);
+        res.json({ vin, licensePlate, expiry, fallbackUsed });
+    } catch (err) {
+        if (req.file && require('fs').existsSync(req.file.path)) {
+            require('fs').unlinkSync(req.file.path);
+        }
+        console.error('OCR Error:', err);
+        res.status(500).json({ error: 'Failed to process document' });
+    }
+});
+
 const handleCloudinaryUpload = async (file) => {
     const result = await cloudinary.uploader.upload(file.path, {
         folder: 'fleetMan_vehicles'
@@ -896,6 +1128,28 @@ app.get('/api/vehicles/:id/barcode', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to generate barcode' });
+    }
+});
+
+app.get('/api/vehicles/:id/qrcode', async (req, res) => {
+    try {
+        const vehicle = await Vehicle.findById(req.params.id);
+        if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+        
+        // QR Code points to the public/semi-public truck profile page
+        const truckUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/truck/${vehicle._id}`;
+        
+        const pngBuffer = await QRCode.toBuffer(truckUrl, {
+            errorCorrectionLevel: 'H',
+            margin: 2,
+            width: 400
+        });
+        
+        res.set('Content-Type', 'image/png');
+        res.send(pngBuffer);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to generate QR code' });
     }
 });
 
@@ -1105,7 +1359,7 @@ app.delete('/api/walkthrough-templates/:id', async (req, res) => {
 // Submit a walkthrough record
 app.post('/api/walkthrough-records', async (req, res) => {
     try {
-        const { templateId, vehicleId, date, mileage, data, maintenanceNote, status } = req.body;
+        let { templateId, vehicleId, date, mileage, data, maintenanceNote, status } = req.body;
         
         if (status === 'draft') {
             let record = await WalkthroughRecord.findOne({
@@ -1126,6 +1380,23 @@ app.post('/api/walkthrough-records', async (req, res) => {
             }
         }
         
+        // Mileage Discrepancy Engine
+        if (status === 'completed' || !status) {
+            if (mileage) {
+                const lastRecord = await WalkthroughRecord.findOne({
+                    vehicleId,
+                    status: 'completed'
+                }).sort('-date');
+                
+                if (lastRecord && lastRecord.mileage) {
+                    if (mileage < lastRecord.mileage) {
+                        maintenanceNote = (maintenanceNote ? maintenanceNote + '\n\n' : '') + 
+                            `[SYSTEM FLAG] Odometer discrepancy: New mileage (${mileage}) is lower than previous (${lastRecord.mileage}).`;
+                    }
+                }
+            }
+        }
+        
         const record = new WalkthroughRecord({
             entityId: req.user?.entityId,
             templateId,
@@ -1139,6 +1410,44 @@ app.post('/api/walkthrough-records', async (req, res) => {
         });
 
         await record.save();
+
+        // Mechanic Routing / Ticket Generation
+        if (record.status === 'completed') {
+            const failedItems = [];
+            if (data) {
+                for (const [key, value] of Object.entries(data)) {
+                    if (value === 'fail') {
+                        failedItems.push(key.replace(/_/g, ' '));
+                    }
+                }
+            }
+            
+            if (failedItems.length > 0 || maintenanceNote) {
+                const openRequest = await MaintenanceRequest.findOne({
+                    vehicleId,
+                    status: { $in: ['pending', 'assigned', 'accepted', 'in-progress', 'awaiting-parts'] }
+                });
+                
+                if (!openRequest) {
+                    let desc = '';
+                    if (failedItems.length > 0) desc += `Failed walkthrough checks: ${failedItems.join(', ')}.\n`;
+                    if (maintenanceNote) desc += `Driver Note: ${maintenanceNote}`;
+                    
+                    const newRequest = new MaintenanceRequest({
+                        entityId: req.user?.entityId,
+                        title: `Auto-generated from Walkthrough (${new Date(record.date).toLocaleDateString()})`,
+                        description: desc,
+                        requestType: 'Vehicle Issue',
+                        vehicleId,
+                        reportedBy: req.user?._id,
+                        status: 'pending',
+                        priority: 'medium'
+                    });
+                    await newRequest.save();
+                }
+            }
+        }
+
         res.json(record);
     } catch (err) {
         console.error(err);
@@ -1181,6 +1490,25 @@ app.get('/api/walkthrough-records', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch records' });
+    }
+});
+
+// Get walkthrough records for a specific vehicle
+app.get('/api/vehicles/:id/walkthroughs', async (req, res) => {
+    try {
+        const records = await WalkthroughRecord.find({ 
+            entityId: req.user?.entityId, 
+            vehicleId: req.params.id,
+            status: 'completed'
+        })
+            .populate('templateId', 'name')
+            .populate('reporterId', 'displayName email')
+            .sort('-date')
+            .limit(50);
+        res.json(records);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch vehicle walkthroughs' });
     }
 });
 
@@ -1419,10 +1747,26 @@ app.get('/api/auto-mmr-data', async (req, res) => {
         const data = await Promise.all(vehicles.map(async (v) => {
             const maintenanceRecords = await MaintenanceRequest.find({
                 entityId: req.user?.entityId,
-                vehicleId: v.truckNumber,
-                status: 'completed',
+                vehicleId: { $in: [v._id.toString(), v.truckNumber] },
+                status: { $in: ['completed', 'closed'] },
                 updatedAt: { $gte: startOfMonth, $lt: endOfMonth }
             });
+
+            // Find first and last walkthrough for the month to get mileage
+            const monthWalkthroughs = await WalkthroughRecord.find({
+                entityId: req.user?.entityId,
+                vehicleId: v._id,
+                status: 'completed',
+                date: { $gte: startOfMonth, $lt: endOfMonth }
+            }).sort('date');
+
+            let monthMileage = v.lastKnownMileage || '';
+            if (monthWalkthroughs.length > 0) {
+                // If we want exact starting and ending we could use them, but MMR uses just 'mileage' 
+                // typically representing the end of month mileage
+                const lastW = monthWalkthroughs[monthWalkthroughs.length - 1];
+                if (lastW.mileage) monthMileage = lastW.mileage;
+            }
 
             const tasks = await Task.find({
                 entityId: req.user?.entityId,
@@ -1439,7 +1783,7 @@ app.get('/api/auto-mmr-data', async (req, res) => {
             return {
                 id: v._id,
                 unit: v.truckNumber,
-                mileage: v.lastKnownMileage || '',
+                mileage: monthMileage,
                 maintenancePerformed: combinedNotes.length > 0 ? 'true' : 'false',
                 outOfService: v.status === 'In shop' ? 'true' : 'false',
                 maintenanceNotes: combinedNotes.join('; ')
@@ -1543,6 +1887,48 @@ app.post('/api/admin/check-overdue-invoices', isAuthenticated, async (req, res) 
         }
         
         res.json({ success: true, processed: overdueInvoices.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 10.5. Devices API
+app.get('/api/devices', async (req, res) => {
+    try {
+        const devices = await Device.find({ entityId: req.user?.entityId }).sort('deviceId');
+        res.json(devices);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/devices', async (req, res) => {
+    try {
+        const device = new Device({ ...req.body, entityId: req.user?.entityId });
+        await device.save();
+        res.status(201).json(device);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/devices/:id', async (req, res) => {
+    try {
+        const device = await Device.findOneAndUpdate(
+            { _id: req.params.id, entityId: req.user?.entityId },
+            req.body,
+            { new: true }
+        );
+        res.json(device);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/devices/:id', async (req, res) => {
+    try {
+        await Device.findOneAndDelete({ _id: req.params.id, entityId: req.user?.entityId });
+        res.json({ message: 'Device deleted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

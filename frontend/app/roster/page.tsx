@@ -20,6 +20,91 @@ export default function FleetRoster() {
   const [mmrTruck, setMmrTruck] = useState<any>(null);
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // Core fields for both export formats: unit number, VIN, and last known mileage are the
+  // must-haves; registration/DOT expiration are included too since they were asked for, but are
+  // the first columns to drop if the export ever needs to be trimmed further.
+  const formatMileage = (value: number | string | null | undefined) =>
+    value ? `${Number(value).toLocaleString()} mi` : '--';
+
+  const buildExportRows = () => {
+    const selectedVehicles = vehicles.filter((v: any) => selectedExportIds.includes(v._id));
+    return selectedVehicles.map((v: any) => ({
+      'Truck Number': v.truckNumber || 'N/A',
+      'VIN': v.vin || 'N/A',
+      'Last Known Mileage': v.lastKnownMileage ? formatMileage(v.lastKnownMileage) : 'N/A',
+      'Registration Expiry': v.registrationExpiry ? new Date(v.registrationExpiry).toLocaleDateString() : 'N/A',
+      'DOT Expiry': v.dotExpiry ? new Date(v.dotExpiry).toLocaleDateString() : 'N/A'
+    }));
+  };
+
+  const escapeHtml = (value: unknown) =>
+    String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  // Give the browser a brief moment to finish rendering the new document before printing.
+  const PRINT_DIALOG_DELAY_MS = 100;
+
+  const buildExportHtml = (rows: Record<string, string>[], headers: string[]) => `
+    <html>
+      <head>
+        <title>Fleet Roster Export</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 32px; color: #12151c; }
+          h1 { font-size: 20px; margin-bottom: 4px; }
+          p.meta { color: #6b7280; font-size: 12px; margin-top: 0; margin-bottom: 24px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e4e7ec; font-size: 13px; }
+          th { background: #f2f4f7; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; color: #6b7280; }
+        </style>
+      </head>
+      <body>
+        <h1>Fleet Roster Export</h1>
+        <p class="meta">Generated ${escapeHtml(new Date().toLocaleString())} &middot; ${rows.length} vehicle(s)</p>
+        <table>
+          <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${rows.map((r: Record<string, string>) => `<tr>${headers.map(h => `<td>${escapeHtml(r[h])}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const handleExportPdf = () => {
+    const rows = buildExportRows();
+    if (!rows.length) {
+      setExportError('Please select vehicles to export.');
+      return false;
+    }
+    const headers = Object.keys(rows[0]);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setExportError('Please allow pop-ups to export the PDF.');
+      return false;
+    }
+    setExportError(null);
+    try {
+      printWindow.document.write(buildExportHtml(rows, headers));
+      printWindow.document.close();
+      window.setTimeout(() => {
+        if (!printWindow.closed) {
+          printWindow.print();
+        }
+      }, PRINT_DIALOG_DELAY_MS);
+    } catch (error) {
+      console.error('Failed to prepare export window', error);
+      setExportError('Unable to prepare the PDF export window.');
+      printWindow.close();
+      return false;
+    }
+    return true;
+  };
 
   const fetchVehicles = () => {
     apiFetch(`/api/vehicles-data`)
@@ -191,29 +276,26 @@ export default function FleetRoster() {
         right={
           isExportMode ? (
             <div className="flex items-center gap-2">
+              {exportError && <span className="text-sm font-medium text-[var(--amber)]">{exportError}</span>}
               <span className="text-sm font-semibold text-[var(--steel)]">{selectedExportIds.length} selected</span>
-              <Btn variant="ghost" onClick={() => { setIsExportMode(false); setSelectedExportIds([]); }}>Cancel</Btn>
-              <Btn variant="primary" icon={Download} onClick={() => {
-                const selectedVehicles = vehicles.filter((v: any) => selectedExportIds.includes(v._id));
-                const dataToExport = selectedVehicles.map((v: any) => ({
-                  'Truck Number': v.truckNumber,
-                  'Route Number': v.routeNumber,
-                  'Make / Model': v.makeModel || 'N/A',
-                  'Status': v.status,
-                  'Mileage': v.lastKnownMileage || '0',
-                  'License Plate': v.licensePlate || 'N/A',
-                  'VIN': v.vin || 'N/A',
-                  'Fuel Type': v.fuelType || 'gas'
-                }));
-                exportToCsv('Fleet_Roster_Export', dataToExport);
+              <Btn variant="ghost" onClick={() => { setIsExportMode(false); setSelectedExportIds([]); setExportError(null); }}>Cancel</Btn>
+              <Btn variant="ghost" icon={FileText} disabled={!selectedExportIds.length} onClick={() => {
+                if (handleExportPdf()) {
+                  setIsExportMode(false);
+                  setSelectedExportIds([]);
+                }
+              }}>Export PDF</Btn>
+              <Btn variant="primary" icon={Download} disabled={!selectedExportIds.length} onClick={() => {
+                setExportError(null);
+                exportToCsv('Fleet_Roster_Export', buildExportRows());
                 setIsExportMode(false);
                 setSelectedExportIds([]);
-              }}>Confirm Export</Btn>
+              }}>Export CSV</Btn>
             </div>
           ) : (
             <>
               <Btn variant="ghost" icon={ListFilter}>Filters</Btn>
-              <Btn variant="ghost" icon={Download} onClick={() => setIsExportMode(true)}>Export CSV</Btn>
+              <Btn variant="ghost" icon={Download} onClick={() => { setIsExportMode(true); setExportError(null); }}>Export Details</Btn>
               <Btn variant="ghost" icon={Upload} onClick={() => setIsBulkUploadOpen(true)}>Bulk Upload</Btn>
               <Btn variant="primary" icon={Plus} onClick={() => setIsAddOpen(true)}>Add truck</Btn>
             </>
@@ -350,7 +432,7 @@ export default function FleetRoster() {
                   <div className="text-sm font-medium text-[var(--ink)]">{v.makeModel || 'N/A'}</div>
                   <div className="text-xs text-[var(--steel)]">{v.vin || 'No VIN'}</div>
                 </td>
-                <td className="px-5 py-4 font-semibold text-[var(--ink)]">{v.lastKnownMileage ? `${v.lastKnownMileage.toLocaleString()} mi` : '--'}</td>
+                <td className="px-5 py-4 font-semibold text-[var(--ink)]">{formatMileage(v.lastKnownMileage)}</td>
                 <td className="px-5 py-4"><OilGauge pct={v.lastOilChange ? 50 : 0} /></td>
                 <td className="px-5 py-4 text-right flex gap-2 justify-end">
                   <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)}>MMR</Btn>
@@ -366,9 +448,22 @@ export default function FleetRoster() {
       {/* Mobile Stacked Cards */}
       <div className="lg:hidden space-y-3">
         {filteredVehicles.map((v: any) => (
-          <div key={v._id} className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl p-4">
+          <div key={v._id} className={`bg-[var(--surface)] border rounded-xl p-4 ${isExportMode && selectedExportIds.includes(v._id) ? 'border-[var(--signal)] ring-1 ring-[var(--signal)]' : 'border-[var(--hairline)]'}`}>
             <div className="flex items-start justify-between mb-4">
-              <ManifestTag route={v.routeNumber} id={v.truckNumber} size="lg" />
+              <div className="flex items-center gap-3">
+                {isExportMode && (
+                  <input
+                    type="checkbox"
+                    checked={selectedExportIds.includes(v._id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedExportIds([...selectedExportIds, v._id]);
+                      else setSelectedExportIds(selectedExportIds.filter(id => id !== v._id));
+                    }}
+                    className="w-5 h-5 rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]"
+                  />
+                )}
+                <ManifestTag route={v.routeNumber} id={v.truckNumber} size="lg" />
+              </div>
               <StatusPill status={v.status} />
             </div>
             <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
@@ -380,7 +475,11 @@ export default function FleetRoster() {
                 <span className="block text-xs text-[var(--steel-light)] mb-0.5">License Plate</span>
                 <span className="font-semibold text-[var(--ink)] font-mono">{v.licensePlate || 'N/A'}</span>
               </div>
-              <div className="col-span-2">
+              <div>
+                <span className="block text-xs text-[var(--steel-light)] mb-0.5">Last Known Mileage</span>
+                <span className="font-semibold text-[var(--ink)]">{formatMileage(v.lastKnownMileage)}</span>
+              </div>
+              <div>
                 <span className="block text-xs text-[var(--steel-light)] mb-1">Oil Life</span>
                 <OilGauge pct={v.lastOilChange ? 50 : 0} />
               </div>

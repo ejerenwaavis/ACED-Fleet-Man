@@ -21,6 +21,8 @@ const Vehicle = require('./models/Vehicle');
 const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
 const Entity = require('./models/Entity');
+const WalkthroughTemplate = require('./models/WalkthroughTemplate');
+const WalkthroughRecord = require('./models/WalkthroughRecord');
 const QRCode = require('qrcode');
 
 // 2. const app = express()
@@ -596,6 +598,242 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Error submitting weekend walkthrough');
+    }
+});
+
+// --- Dynamic Template-based Walkthrough Routes ---
+
+// GET templates list
+app.get('/api/walkthrough-templates', async (req, res) => {
+    try {
+        const templates = await WalkthroughTemplate.find({ entityId: req.user?.entityId }).sort('name');
+        res.json(templates);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/walkthrough-templates', async (req, res) => {
+    try {
+        const { name, items } = req.body;
+        if (!name || !Array.isArray(items)) {
+            return res.status(400).json({ error: 'name and items (array) are required' });
+        }
+        const template = new WalkthroughTemplate({ name, items, entityId: req.user?.entityId });
+        await template.save();
+        res.json(template);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/walkthrough-templates/:id', async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ error: 'Invalid template id' });
+        }
+        const { name, items } = req.body;
+        const template = await WalkthroughTemplate.findOneAndUpdate(
+            { _id: req.params.id, entityId: req.user?.entityId },
+            { $set: { name, items } },
+            { new: true }
+        );
+        if (!template) return res.status(404).json({ error: 'Template not found' });
+        res.json(template);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/walkthrough-templates/:id', async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ error: 'Invalid template id' });
+        }
+        const deleted = await WalkthroughTemplate.findOneAndDelete({ _id: req.params.id, entityId: req.user?.entityId });
+        if (!deleted) return res.status(404).json({ error: 'Template not found' });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/walkthrough-records', async (req, res) => {
+    try {
+        let { templateId, vehicleId, date, mileage, data, maintenanceNote, status } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(templateId) || !mongoose.Types.ObjectId.isValid(vehicleId)) {
+            return res.status(400).json({ error: 'Invalid templateId or vehicleId' });
+        }
+        // Cast to ObjectId after validation so queries use typed values.
+        const tplId = new mongoose.Types.ObjectId(templateId);
+        const vehId = new mongoose.Types.ObjectId(vehicleId);
+
+        const allowedStatuses = ['draft', 'completed'];
+        if (status && !allowedStatuses.includes(status)) {
+            return res.status(400).json({ error: 'Invalid status value' });
+        }
+
+        // Fetch the template once and reuse below to avoid duplicate DB calls.
+        let cachedTpl = null;
+        const getTemplate = async () => {
+            if (!cachedTpl) {
+                cachedTpl = await WalkthroughTemplate.findOne({ _id: tplId, entityId: req.user?.entityId });
+            }
+            return cachedTpl;
+        };
+
+        // The frontend form only sends checklist answers inside `data` (keyed by field id),
+        // it does not send a top-level `mileage`. If the template has a field flagged as the
+        // mileage/odometer field (or a number field labeled "mileage"/"odometer" as a fallback
+        // for templates saved before that flag existed), pull the value out of `data` so it
+        // actually gets recorded and can be used to update the vehicle below.
+        if (mileage == null && data) {
+            try {
+                const tpl = await getTemplate();
+                if (tpl && tpl.items) {
+                    // Single pass: prefer explicit isMileageField, fall back to label match.
+                    let explicit = null, labelMatch = null;
+                    for (const i of tpl.items) {
+                        if (i.isMileageField) { explicit = i; break; }
+                        if (!labelMatch && i.type === 'number' && /\b(mileage|odometer)\b/i.test(i.label || '')) {
+                            labelMatch = i;
+                        }
+                    }
+                    const mileageItem = explicit || labelMatch;
+                    if (mileageItem && data[mileageItem.id] != null) {
+                        mileage = data[mileageItem.id];
+                    }
+                }
+            } catch (lookupErr) {
+                console.error('Mileage field lookup failed', lookupErr);
+            }
+        }
+
+        const parsedMileage = mileage != null ? Number(mileage) : undefined;
+        if (parsedMileage !== undefined && (isNaN(parsedMileage) || parsedMileage < 0)) {
+            return res.status(400).json({ error: 'mileage must be a non-negative number' });
+        }
+
+        if (status === 'draft') {
+            // Upsert a draft record (one draft per vehicle+template+date)
+            const startOfDay = new Date(date || Date.now());
+            startOfDay.setUTCHours(0, 0, 0, 0);
+            const endOfDay = new Date(startOfDay);
+            endOfDay.setUTCHours(23, 59, 59, 999);
+
+            let record = await WalkthroughRecord.findOne({
+                entityId: req.user?.entityId,
+                templateId: tplId,
+                vehicleId: vehId,
+                date: { $gte: startOfDay, $lte: endOfDay },
+                status: 'draft'
+            });
+
+            if (!record) {
+                record = new WalkthroughRecord({
+                    entityId: req.user?.entityId,
+                    templateId: tplId,
+                    vehicleId: vehId,
+                    date: date ? new Date(date) : new Date()
+                });
+            }
+
+            if (parsedMileage !== undefined) record.mileage = parsedMileage;
+            if (data !== undefined) record.data = data;
+            if (maintenanceNote !== undefined) record.maintenanceNote = maintenanceNote;
+            record.status = 'draft';
+
+            await record.save();
+            return res.json({ success: true, record });
+        }
+
+        // Completed submission
+        const record = new WalkthroughRecord({
+            entityId: req.user?.entityId,
+            templateId: tplId,
+            vehicleId: vehId,
+            date: date ? new Date(date) : new Date(),
+            mileage: parsedMileage,
+            data,
+            maintenanceNote,
+            status: 'completed'
+        });
+
+        await record.save();
+
+        // Fetch the vehicle once; reuse for both mileage update and task creation.
+        let cachedVehicle = null;
+        const getVehicle = async () => {
+            if (!cachedVehicle) {
+                cachedVehicle = await Vehicle.findOne({ _id: vehId, entityId: req.user?.entityId });
+            }
+            return cachedVehicle;
+        };
+
+        // Persist mileage to the vehicle so Fleet Roster reflects the latest reading.
+        if (parsedMileage != null) {
+            try {
+                const vehicle = await getVehicle();
+                if (vehicle) {
+                    vehicle.lastKnownMileage = parsedMileage;
+                    await vehicle.save();
+                }
+            } catch (mileageErr) {
+                console.error('Failed to update vehicle mileage from walkthrough', mileageErr);
+            }
+        }
+
+        // Mechanic Routing / Ticket Generation
+        const failedItems = [];
+        if (data) {
+            const tpl = await getTemplate();
+            if (tpl && tpl.items) {
+                for (const item of tpl.items) {
+                    if (item.type === 'boolean' && data[item.id] === false) {
+                        failedItems.push(item.label);
+                    }
+                }
+            }
+        }
+
+        if (maintenanceNote || failedItems.length > 0) {
+            const vehicle = await getVehicle();
+            const noteLines = [];
+            if (failedItems.length > 0) noteLines.push(`Failed items: ${failedItems.join(', ')}`);
+            if (maintenanceNote) noteLines.push(maintenanceNote);
+            await Task.create({
+                entityId: req.user?.entityId,
+                title: `Walkthrough Issue - ${vehicle ? vehicle.truckNumber : vehId}`,
+                description: noteLines.join('\n'),
+                category: 'walkthrough-issue',
+                referenceId: record._id
+            });
+        }
+
+        res.json({ success: true, record });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/walkthrough-records', async (req, res) => {
+    try {
+        const { templateId, vehicleId } = req.query;
+        const filter = { entityId: req.user?.entityId };
+        if (templateId) {
+            if (!mongoose.Types.ObjectId.isValid(templateId)) return res.status(400).json({ error: 'Invalid templateId' });
+            filter.templateId = new mongoose.Types.ObjectId(templateId);
+        }
+        if (vehicleId) {
+            if (!mongoose.Types.ObjectId.isValid(vehicleId)) return res.status(400).json({ error: 'Invalid vehicleId' });
+            filter.vehicleId = new mongoose.Types.ObjectId(vehicleId);
+        }
+        const records = await WalkthroughRecord.find(filter).sort('-date').limit(100);
+        res.json(records);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

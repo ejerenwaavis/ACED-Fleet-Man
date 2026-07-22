@@ -46,6 +46,32 @@ export default function FleetRoster() {
 
   const PRINT_DIALOG_DELAY_MS = 100;
 
+  const buildExportHtml = (rows: Record<string, string>[], headers: string[]) => `
+    <html>
+      <head>
+        <title>Fleet Roster Export</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 32px; color: #12151c; }
+          h1 { font-size: 20px; margin-bottom: 4px; }
+          p.meta { color: #6b7280; font-size: 12px; margin-top: 0; margin-bottom: 24px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e4e7ec; font-size: 13px; }
+          th { background: #f2f4f7; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; color: #6b7280; }
+        </style>
+      </head>
+      <body>
+        <h1>Fleet Roster Export</h1>
+        <p class="meta">Generated ${escapeHtml(new Date().toLocaleString())} &middot; ${rows.length} vehicle(s)</p>
+        <table>
+          <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${rows.map((r: Record<string, string>) => `<tr>${headers.map(h => `<td>${escapeHtml(r[h])}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
   const handleExportPdf = () => {
     const rows = buildExportRows();
     if (!rows.length) {
@@ -59,33 +85,22 @@ export default function FleetRoster() {
       return false;
     }
     setExportError(null);
-    printWindow?.document.write(`
-      <html>
-        <head>
-          <title>Fleet Roster Export</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 32px; color: #12151c; }
-            h1 { font-size: 20px; margin-bottom: 4px; }
-            p.meta { color: #6b7280; font-size: 12px; margin-top: 0; margin-bottom: 24px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e4e7ec; font-size: 13px; }
-            th { background: #f2f4f7; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; color: #6b7280; }
-          </style>
-        </head>
-        <body>
-          <h1>Fleet Roster Export</h1>
-          <p class="meta">Generated ${new Date().toLocaleString()} &middot; ${rows.length} vehicle(s)</p>
-          <table>
-            <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
-            <tbody>
-              ${rows.map((r: any) => `<tr>${headers.map(h => `<td>${escapeHtml(r[h])}</td>`).join('')}</tr>`).join('')}
-            </tbody>
-          </table>
-        </body>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, ${PRINT_DIALOG_DELAY_MS}); }</script>
-      </html>
-    `);
-    printWindow?.document.close();
+    try {
+      printWindow.document.write(buildExportHtml(rows, headers));
+      printWindow.document.close();
+      printWindow.onload = () => {
+        window.setTimeout(() => {
+          if (!printWindow.closed) {
+            printWindow.print();
+          }
+        }, PRINT_DIALOG_DELAY_MS);
+      };
+    } catch (error) {
+      console.error('Failed to prepare export window', error);
+      setExportError('Unable to prepare the PDF export window.');
+      printWindow.close();
+      return false;
+    }
     return true;
   };
 

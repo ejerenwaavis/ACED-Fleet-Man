@@ -615,7 +615,8 @@ app.get('/api/walkthrough-templates', async (req, res) => {
 
 app.post('/api/walkthrough-templates', async (req, res) => {
     try {
-        const template = new WalkthroughTemplate({ ...req.body, entityId: req.user?.entityId });
+        const { name, items } = req.body;
+        const template = new WalkthroughTemplate({ name, items, entityId: req.user?.entityId });
         await template.save();
         res.json(template);
     } catch (err) {
@@ -625,7 +626,16 @@ app.post('/api/walkthrough-templates', async (req, res) => {
 
 app.put('/api/walkthrough-templates/:id', async (req, res) => {
     try {
-        const template = await WalkthroughTemplate.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ error: 'Invalid template id' });
+        }
+        const { name, items } = req.body;
+        const template = await WalkthroughTemplate.findOneAndUpdate(
+            { _id: req.params.id, entityId: req.user?.entityId },
+            { name, items },
+            { new: true }
+        );
+        if (!template) return res.status(404).json({ error: 'Template not found' });
         res.json(template);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -634,7 +644,11 @@ app.put('/api/walkthrough-templates/:id', async (req, res) => {
 
 app.delete('/api/walkthrough-templates/:id', async (req, res) => {
     try {
-        await WalkthroughTemplate.findByIdAndDelete(req.params.id);
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ error: 'Invalid template id' });
+        }
+        const deleted = await WalkthroughTemplate.findOneAndDelete({ _id: req.params.id, entityId: req.user?.entityId });
+        if (!deleted) return res.status(404).json({ error: 'Template not found' });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -645,24 +659,33 @@ app.post('/api/walkthrough-records', async (req, res) => {
     try {
         let { templateId, vehicleId, date, mileage, data, maintenanceNote, status } = req.body;
 
+        if (!mongoose.Types.ObjectId.isValid(templateId) || !mongoose.Types.ObjectId.isValid(vehicleId)) {
+            return res.status(400).json({ error: 'Invalid templateId or vehicleId' });
+        }
+
         // The frontend form only sends checklist answers inside `data` (keyed by field id),
         // it does not send a top-level `mileage`. If the template has a field flagged as the
         // mileage/odometer field (or a number field labeled "mileage"/"odometer" as a fallback
         // for templates saved before that flag existed), pull the value out of `data` so it
         // actually gets recorded and can be used to update the vehicle below.
-        if (!mileage && data && templateId) {
+        if (mileage == null && data && templateId) {
             try {
-                const tpl = await WalkthroughTemplate.findById(templateId);
+                const tpl = await WalkthroughTemplate.findOne({ _id: templateId, entityId: req.user?.entityId });
                 if (tpl && tpl.items) {
                     const mileageItem = tpl.items.find(i => i.isMileageField) ||
-                        tpl.items.find(i => i.type === 'number' && /mileage|odometer/i.test(i.label || ''));
-                    if (mileageItem && data[mileageItem.id]) {
+                        tpl.items.find(i => i.type === 'number' && /\b(mileage|odometer)\b/i.test(i.label || ''));
+                    if (mileageItem && data[mileageItem.id] != null) {
                         mileage = data[mileageItem.id];
                     }
                 }
             } catch (lookupErr) {
                 console.error('Mileage field lookup failed', lookupErr);
             }
+        }
+
+        const parsedMileage = mileage != null ? Number(mileage) : undefined;
+        if (parsedMileage !== undefined && isNaN(parsedMileage)) {
+            return res.status(400).json({ error: 'mileage must be a valid number' });
         }
 
         if (status === 'draft') {
@@ -689,7 +712,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
                 });
             }
 
-            if (mileage !== undefined) record.mileage = Number(mileage);
+            if (parsedMileage !== undefined) record.mileage = parsedMileage;
             if (data !== undefined) record.data = data;
             if (maintenanceNote !== undefined) record.maintenanceNote = maintenanceNote;
             record.status = 'draft';
@@ -704,7 +727,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
             templateId,
             vehicleId,
             date: date ? new Date(date) : new Date(),
-            mileage: mileage !== undefined ? Number(mileage) : undefined,
+            mileage: parsedMileage,
             data,
             maintenanceNote,
             status: 'completed'
@@ -713,11 +736,11 @@ app.post('/api/walkthrough-records', async (req, res) => {
         await record.save();
 
         // Persist mileage to the vehicle so Fleet Roster reflects the latest reading.
-        if (record.status === 'completed' && mileage) {
+        if (record.status === 'completed' && parsedMileage != null) {
             try {
-                const vehicleForMileage = await Vehicle.findById(vehicleId);
+                const vehicleForMileage = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
                 if (vehicleForMileage) {
-                    vehicleForMileage.lastKnownMileage = Number(mileage);
+                    vehicleForMileage.lastKnownMileage = parsedMileage;
                     await vehicleForMileage.save();
                 }
             } catch (mileageErr) {
@@ -729,7 +752,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
         if (record.status === 'completed') {
             const failedItems = [];
             if (data) {
-                const tpl = await WalkthroughTemplate.findById(templateId);
+                const tpl = await WalkthroughTemplate.findOne({ _id: templateId, entityId: req.user?.entityId });
                 if (tpl && tpl.items) {
                     for (const item of tpl.items) {
                         const val = data[item.id];
@@ -741,7 +764,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
             }
 
             if (maintenanceNote || failedItems.length > 0) {
-                const vehicle = await Vehicle.findById(vehicleId);
+                const vehicle = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
                 const noteLines = [];
                 if (failedItems.length > 0) noteLines.push(`Failed items: ${failedItems.join(', ')}`);
                 if (maintenanceNote) noteLines.push(maintenanceNote);
@@ -766,8 +789,14 @@ app.get('/api/walkthrough-records', async (req, res) => {
     try {
         const { templateId, vehicleId } = req.query;
         const filter = { entityId: req.user?.entityId };
-        if (templateId) filter.templateId = templateId;
-        if (vehicleId) filter.vehicleId = vehicleId;
+        if (templateId) {
+            if (!mongoose.Types.ObjectId.isValid(templateId)) return res.status(400).json({ error: 'Invalid templateId' });
+            filter.templateId = templateId;
+        }
+        if (vehicleId) {
+            if (!mongoose.Types.ObjectId.isValid(vehicleId)) return res.status(400).json({ error: 'Invalid vehicleId' });
+            filter.vehicleId = vehicleId;
+        }
         const records = await WalkthroughRecord.find(filter).sort('-date').limit(100);
         res.json(records);
     } catch (err) {

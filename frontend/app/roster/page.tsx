@@ -20,6 +20,7 @@ export default function FleetRoster() {
   const [mmrTruck, setMmrTruck] = useState<any>(null);
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Core fields for both export formats: unit number, VIN, and last known mileage are the
   // must-haves; registration/DOT expiration are included too since they were asked for, but are
@@ -43,11 +44,21 @@ export default function FleetRoster() {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
+  const PRINT_DIALOG_DELAY_MS = 100;
+
   const handleExportPdf = () => {
     const rows = buildExportRows();
-    if (!rows.length) { alert('Please select vehicles to export'); return; }
+    if (!rows.length) {
+      setExportError('Please select vehicles to export.');
+      return false;
+    }
     const headers = Object.keys(rows[0]);
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setExportError('Please allow pop-ups to export the PDF.');
+      return false;
+    }
+    setExportError(null);
     printWindow?.document.write(`
       <html>
         <head>
@@ -71,10 +82,11 @@ export default function FleetRoster() {
             </tbody>
           </table>
         </body>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, 100); }</script>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, ${PRINT_DIALOG_DELAY_MS}); }</script>
       </html>
     `);
     printWindow?.document.close();
+    return true;
   };
 
   const fetchVehicles = () => {
@@ -247,14 +259,17 @@ export default function FleetRoster() {
         right={
           isExportMode ? (
             <div className="flex items-center gap-2">
+              {exportError && <span className="text-sm font-medium text-[var(--amber)]">{exportError}</span>}
               <span className="text-sm font-semibold text-[var(--steel)]">{selectedExportIds.length} selected</span>
-              <Btn variant="ghost" onClick={() => { setIsExportMode(false); setSelectedExportIds([]); }}>Cancel</Btn>
+              <Btn variant="ghost" onClick={() => { setIsExportMode(false); setSelectedExportIds([]); setExportError(null); }}>Cancel</Btn>
               <Btn variant="ghost" icon={FileText} disabled={!selectedExportIds.length} onClick={() => {
-                handleExportPdf();
-                setIsExportMode(false);
-                setSelectedExportIds([]);
+                if (handleExportPdf()) {
+                  setIsExportMode(false);
+                  setSelectedExportIds([]);
+                }
               }}>Export PDF</Btn>
               <Btn variant="primary" icon={Download} disabled={!selectedExportIds.length} onClick={() => {
+                setExportError(null);
                 exportToCsv('Fleet_Roster_Export', buildExportRows());
                 setIsExportMode(false);
                 setSelectedExportIds([]);
@@ -263,7 +278,7 @@ export default function FleetRoster() {
           ) : (
             <>
               <Btn variant="ghost" icon={ListFilter}>Filters</Btn>
-              <Btn variant="ghost" icon={Download} onClick={() => setIsExportMode(true)}>Export Details</Btn>
+              <Btn variant="ghost" icon={Download} onClick={() => { setIsExportMode(true); setExportError(null); }}>Export Details</Btn>
               <Btn variant="ghost" icon={Upload} onClick={() => setIsBulkUploadOpen(true)}>Bulk Upload</Btn>
               <Btn variant="primary" icon={Plus} onClick={() => setIsAddOpen(true)}>Add truck</Btn>
             </>

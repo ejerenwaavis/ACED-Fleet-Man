@@ -632,7 +632,7 @@ app.put('/api/walkthrough-templates/:id', async (req, res) => {
         const { name, items } = req.body;
         const template = await WalkthroughTemplate.findOneAndUpdate(
             { _id: req.params.id, entityId: req.user?.entityId },
-            { name, items },
+            { $set: { name, items } },
             { new: true }
         );
         if (!template) return res.status(404).json({ error: 'Template not found' });
@@ -663,14 +663,28 @@ app.post('/api/walkthrough-records', async (req, res) => {
             return res.status(400).json({ error: 'Invalid templateId or vehicleId' });
         }
 
+        const allowedStatuses = ['draft', 'completed'];
+        if (status && !allowedStatuses.includes(status)) {
+            return res.status(400).json({ error: 'Invalid status value' });
+        }
+
+        // Fetch the template once and reuse below to avoid duplicate DB calls.
+        let cachedTpl = null;
+        const getTemplate = async () => {
+            if (!cachedTpl) {
+                cachedTpl = await WalkthroughTemplate.findOne({ _id: templateId, entityId: req.user?.entityId });
+            }
+            return cachedTpl;
+        };
+
         // The frontend form only sends checklist answers inside `data` (keyed by field id),
         // it does not send a top-level `mileage`. If the template has a field flagged as the
         // mileage/odometer field (or a number field labeled "mileage"/"odometer" as a fallback
         // for templates saved before that flag existed), pull the value out of `data` so it
         // actually gets recorded and can be used to update the vehicle below.
-        if (mileage == null && data && templateId) {
+        if (mileage == null && data) {
             try {
-                const tpl = await WalkthroughTemplate.findOne({ _id: templateId, entityId: req.user?.entityId });
+                const tpl = await getTemplate();
                 if (tpl && tpl.items) {
                     const mileageItem = tpl.items.find(i => i.isMileageField) ||
                         tpl.items.find(i => i.type === 'number' && /\b(mileage|odometer)\b/i.test(i.label || ''));
@@ -691,9 +705,9 @@ app.post('/api/walkthrough-records', async (req, res) => {
         if (status === 'draft') {
             // Upsert a draft record (one draft per vehicle+template+date)
             const startOfDay = new Date(date || Date.now());
-            startOfDay.setHours(0, 0, 0, 0);
+            startOfDay.setUTCHours(0, 0, 0, 0);
             const endOfDay = new Date(startOfDay);
-            endOfDay.setHours(23, 59, 59, 999);
+            endOfDay.setUTCHours(23, 59, 59, 999);
 
             let record = await WalkthroughRecord.findOne({
                 entityId: req.user?.entityId,
@@ -736,12 +750,12 @@ app.post('/api/walkthrough-records', async (req, res) => {
         await record.save();
 
         // Persist mileage to the vehicle so Fleet Roster reflects the latest reading.
-        if (record.status === 'completed' && parsedMileage != null) {
+        if (parsedMileage != null) {
             try {
-                const vehicleForMileage = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
-                if (vehicleForMileage) {
-                    vehicleForMileage.lastKnownMileage = parsedMileage;
-                    await vehicleForMileage.save();
+                const vehicle = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
+                if (vehicle) {
+                    vehicle.lastKnownMileage = parsedMileage;
+                    await vehicle.save();
                 }
             } catch (mileageErr) {
                 console.error('Failed to update vehicle mileage from walkthrough', mileageErr);
@@ -749,33 +763,30 @@ app.post('/api/walkthrough-records', async (req, res) => {
         }
 
         // Mechanic Routing / Ticket Generation
-        if (record.status === 'completed') {
-            const failedItems = [];
-            if (data) {
-                const tpl = await WalkthroughTemplate.findOne({ _id: templateId, entityId: req.user?.entityId });
-                if (tpl && tpl.items) {
-                    for (const item of tpl.items) {
-                        const val = data[item.id];
-                        if (item.type === 'boolean' && val === false) {
-                            failedItems.push(item.label);
-                        }
+        const failedItems = [];
+        if (data) {
+            const tpl = await getTemplate();
+            if (tpl && tpl.items) {
+                for (const item of tpl.items) {
+                    if (item.type === 'boolean' && data[item.id] === false) {
+                        failedItems.push(item.label);
                     }
                 }
             }
+        }
 
-            if (maintenanceNote || failedItems.length > 0) {
-                const vehicle = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
-                const noteLines = [];
-                if (failedItems.length > 0) noteLines.push(`Failed items: ${failedItems.join(', ')}`);
-                if (maintenanceNote) noteLines.push(maintenanceNote);
-                await Task.create({
-                    entityId: req.user?.entityId,
-                    title: `Walkthrough Issue - ${vehicle ? vehicle.truckNumber : vehicleId}`,
-                    description: noteLines.join('\n'),
-                    category: 'walkthrough-issue',
-                    referenceId: record._id
-                });
-            }
+        if (maintenanceNote || failedItems.length > 0) {
+            const vehicle = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
+            const noteLines = [];
+            if (failedItems.length > 0) noteLines.push(`Failed items: ${failedItems.join(', ')}`);
+            if (maintenanceNote) noteLines.push(maintenanceNote);
+            await Task.create({
+                entityId: req.user?.entityId,
+                title: `Walkthrough Issue - ${vehicle ? vehicle.truckNumber : vehicleId}`,
+                description: noteLines.join('\n'),
+                category: 'walkthrough-issue',
+                referenceId: record._id
+            });
         }
 
         res.json({ success: true, record });

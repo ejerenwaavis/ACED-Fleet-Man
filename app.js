@@ -662,6 +662,9 @@ app.post('/api/walkthrough-records', async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(templateId) || !mongoose.Types.ObjectId.isValid(vehicleId)) {
             return res.status(400).json({ error: 'Invalid templateId or vehicleId' });
         }
+        // Cast to ObjectId after validation so queries use typed values.
+        const tplId = new mongoose.Types.ObjectId(templateId);
+        const vehId = new mongoose.Types.ObjectId(vehicleId);
 
         const allowedStatuses = ['draft', 'completed'];
         if (status && !allowedStatuses.includes(status)) {
@@ -672,7 +675,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
         let cachedTpl = null;
         const getTemplate = async () => {
             if (!cachedTpl) {
-                cachedTpl = await WalkthroughTemplate.findOne({ _id: templateId, entityId: req.user?.entityId });
+                cachedTpl = await WalkthroughTemplate.findOne({ _id: tplId, entityId: req.user?.entityId });
             }
             return cachedTpl;
         };
@@ -711,8 +714,8 @@ app.post('/api/walkthrough-records', async (req, res) => {
 
             let record = await WalkthroughRecord.findOne({
                 entityId: req.user?.entityId,
-                templateId,
-                vehicleId,
+                templateId: tplId,
+                vehicleId: vehId,
                 date: { $gte: startOfDay, $lte: endOfDay },
                 status: 'draft'
             });
@@ -720,8 +723,8 @@ app.post('/api/walkthrough-records', async (req, res) => {
             if (!record) {
                 record = new WalkthroughRecord({
                     entityId: req.user?.entityId,
-                    templateId,
-                    vehicleId,
+                    templateId: tplId,
+                    vehicleId: vehId,
                     date: date ? new Date(date) : new Date()
                 });
             }
@@ -738,8 +741,8 @@ app.post('/api/walkthrough-records', async (req, res) => {
         // Completed submission
         const record = new WalkthroughRecord({
             entityId: req.user?.entityId,
-            templateId,
-            vehicleId,
+            templateId: tplId,
+            vehicleId: vehId,
             date: date ? new Date(date) : new Date(),
             mileage: parsedMileage,
             data,
@@ -752,7 +755,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
         // Persist mileage to the vehicle so Fleet Roster reflects the latest reading.
         if (parsedMileage != null) {
             try {
-                const vehicle = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
+                const vehicle = await Vehicle.findOne({ _id: vehId, entityId: req.user?.entityId });
                 if (vehicle) {
                     vehicle.lastKnownMileage = parsedMileage;
                     await vehicle.save();
@@ -776,13 +779,13 @@ app.post('/api/walkthrough-records', async (req, res) => {
         }
 
         if (maintenanceNote || failedItems.length > 0) {
-            const vehicle = await Vehicle.findOne({ _id: vehicleId, entityId: req.user?.entityId });
+            const vehicle = await Vehicle.findOne({ _id: vehId, entityId: req.user?.entityId });
             const noteLines = [];
             if (failedItems.length > 0) noteLines.push(`Failed items: ${failedItems.join(', ')}`);
             if (maintenanceNote) noteLines.push(maintenanceNote);
             await Task.create({
                 entityId: req.user?.entityId,
-                title: `Walkthrough Issue - ${vehicle ? vehicle.truckNumber : vehicleId}`,
+                title: `Walkthrough Issue - ${vehicle ? vehicle.truckNumber : vehId}`,
                 description: noteLines.join('\n'),
                 category: 'walkthrough-issue',
                 referenceId: record._id
@@ -802,11 +805,11 @@ app.get('/api/walkthrough-records', async (req, res) => {
         const filter = { entityId: req.user?.entityId };
         if (templateId) {
             if (!mongoose.Types.ObjectId.isValid(templateId)) return res.status(400).json({ error: 'Invalid templateId' });
-            filter.templateId = templateId;
+            filter.templateId = new mongoose.Types.ObjectId(templateId);
         }
         if (vehicleId) {
             if (!mongoose.Types.ObjectId.isValid(vehicleId)) return res.status(400).json({ error: 'Invalid vehicleId' });
-            filter.vehicleId = vehicleId;
+            filter.vehicleId = new mongoose.Types.ObjectId(vehicleId);
         }
         const records = await WalkthroughRecord.find(filter).sort('-date').limit(100);
         res.json(records);

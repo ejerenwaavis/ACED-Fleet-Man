@@ -616,6 +616,9 @@ app.get('/api/walkthrough-templates', async (req, res) => {
 app.post('/api/walkthrough-templates', async (req, res) => {
     try {
         const { name, items } = req.body;
+        if (!name || !Array.isArray(items)) {
+            return res.status(400).json({ error: 'name and items (array) are required' });
+        }
         const template = new WalkthroughTemplate({ name, items, entityId: req.user?.entityId });
         await template.save();
         res.json(template);
@@ -689,8 +692,15 @@ app.post('/api/walkthrough-records', async (req, res) => {
             try {
                 const tpl = await getTemplate();
                 if (tpl && tpl.items) {
-                    const mileageItem = tpl.items.find(i => i.isMileageField) ||
-                        tpl.items.find(i => i.type === 'number' && /\b(mileage|odometer)\b/i.test(i.label || ''));
+                    // Single pass: prefer explicit isMileageField, fall back to label match.
+                    let explicit = null, labelMatch = null;
+                    for (const i of tpl.items) {
+                        if (i.isMileageField) { explicit = i; break; }
+                        if (!labelMatch && i.type === 'number' && /\b(mileage|odometer)\b/i.test(i.label || '')) {
+                            labelMatch = i;
+                        }
+                    }
+                    const mileageItem = explicit || labelMatch;
                     if (mileageItem && data[mileageItem.id] != null) {
                         mileage = data[mileageItem.id];
                     }
@@ -701,8 +711,8 @@ app.post('/api/walkthrough-records', async (req, res) => {
         }
 
         const parsedMileage = mileage != null ? Number(mileage) : undefined;
-        if (parsedMileage !== undefined && isNaN(parsedMileage)) {
-            return res.status(400).json({ error: 'mileage must be a valid number' });
+        if (parsedMileage !== undefined && (isNaN(parsedMileage) || parsedMileage < 0)) {
+            return res.status(400).json({ error: 'mileage must be a non-negative number' });
         }
 
         if (status === 'draft') {
@@ -752,10 +762,19 @@ app.post('/api/walkthrough-records', async (req, res) => {
 
         await record.save();
 
+        // Fetch the vehicle once; reuse for both mileage update and task creation.
+        let cachedVehicle = null;
+        const getVehicle = async () => {
+            if (!cachedVehicle) {
+                cachedVehicle = await Vehicle.findOne({ _id: vehId, entityId: req.user?.entityId });
+            }
+            return cachedVehicle;
+        };
+
         // Persist mileage to the vehicle so Fleet Roster reflects the latest reading.
         if (parsedMileage != null) {
             try {
-                const vehicle = await Vehicle.findOne({ _id: vehId, entityId: req.user?.entityId });
+                const vehicle = await getVehicle();
                 if (vehicle) {
                     vehicle.lastKnownMileage = parsedMileage;
                     await vehicle.save();
@@ -779,7 +798,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
         }
 
         if (maintenanceNote || failedItems.length > 0) {
-            const vehicle = await Vehicle.findOne({ _id: vehId, entityId: req.user?.entityId });
+            const vehicle = await getVehicle();
             const noteLines = [];
             if (failedItems.length > 0) noteLines.push(`Failed items: ${failedItems.join(', ')}`);
             if (maintenanceNote) noteLines.push(maintenanceNote);

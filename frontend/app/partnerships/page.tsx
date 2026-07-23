@@ -77,11 +77,12 @@ export default function PartnershipsPage() {
 
       <div className="space-y-6">
         {partnerships.map((p: any) => {
+          const userEntityId = user?.entityId?._id || user?.entityId;
           const initiatedById = p.initiatedBy?._id || p.initiatedBy;
-          const isMyRequest = initiatedById === user?.entityId;
+          const isMyRequest = String(initiatedById) === String(userEntityId);
           
           const dspId = p.dspEntityId?._id || p.dspEntityId;
-          const isDsp = dspId === user?.entityId;
+          const isDsp = String(dspId) === String(userEntityId);
           
           const otherParty = isDsp ? p.mspEntityId : p.dspEntityId;
           

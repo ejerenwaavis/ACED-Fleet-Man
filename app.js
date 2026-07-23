@@ -157,11 +157,22 @@ passport.use(new GoogleStrategy({
 ));
 
 // --- Auth Routes ---
-app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+app.get('/api/auth/google', (req, res, next) => {
+    if (req.query.state) {
+        req.session.returnTo = req.query.state;
+    }
+    next();
+}, passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 app.get('/api/auth/google/callback', 
     passport.authenticate('google', { failureRedirect: '/login?error=true' }),
     (req, res) => {
+        const returnTo = req.session.returnTo;
+        if (returnTo) {
+            delete req.session.returnTo;
+            return res.redirect(`${frontendUrl}${returnTo}`);
+        }
+        
         // If unassigned, go to onboarding, else go to roster
         if (req.user.role === 'unassigned') {
             res.redirect(`${frontendUrl}/onboarding`);
@@ -317,7 +328,8 @@ app.post('/api/invites/generate', isAuthenticated, async (req, res) => {
             role
         });
         
-        const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/join/${invite.token}`;
+        const baseUrl = req.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const inviteLink = `${baseUrl}/join?token=${invite.token}`;
         
         // If a phone number was provided, send an SMS via our mock service
         if (phone) {
@@ -1011,10 +1023,12 @@ app.post('/api/vehicles', uploadVehicleDocs.fields([
         };
 
         if (registrationExpiry) {
-            vehicleData.registrationExpiry = new Date(registrationExpiry);
+            const parsedRegDate = new Date(Array.isArray(registrationExpiry) ? registrationExpiry[0] : registrationExpiry);
+            if (!isNaN(parsedRegDate)) vehicleData.registrationExpiry = parsedRegDate;
         }
         if (dotExpiry) {
-            vehicleData.dotExpiry = new Date(dotExpiry);
+            const parsedDotDate = new Date(Array.isArray(dotExpiry) ? dotExpiry[0] : dotExpiry);
+            if (!isNaN(parsedDotDate)) vehicleData.dotExpiry = parsedDotDate;
         }
 
         if (req.files) {
@@ -1085,10 +1099,12 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
         };
 
         if (registrationExpiry) {
-            vehicleData.registrationExpiry = new Date(registrationExpiry);
+            const parsedRegDate = new Date(Array.isArray(registrationExpiry) ? registrationExpiry[0] : registrationExpiry);
+            if (!isNaN(parsedRegDate)) vehicleData.registrationExpiry = parsedRegDate;
         }
         if (dotExpiry) {
-            vehicleData.dotExpiry = new Date(dotExpiry);
+            const parsedDotDate = new Date(Array.isArray(dotExpiry) ? dotExpiry[0] : dotExpiry);
+            if (!isNaN(parsedDotDate)) vehicleData.dotExpiry = parsedDotDate;
         }
         if (lastKnownMileage !== undefined && lastKnownMileage !== '') {
             vehicleData.lastKnownMileage = Number(lastKnownMileage);
@@ -1219,6 +1235,7 @@ app.post('/api/maintenance/:id/cancel', isAuthenticated, async (req, res) => {
         await ActivityLog.create({
             jobId: maintenanceReq._id,
             actorId: req.user._id,
+            actorEntityId: req.user.entityId,
             action: 'request_cancelled',
             description: 'Request was cancelled by the fleet manager'
         });
@@ -2056,6 +2073,11 @@ app.get('/api/devices', async (req, res) => {
 
 app.post('/api/devices', async (req, res) => {
     try {
+        const existing = await Device.findOne({ deviceId: req.body.deviceId, entityId: req.user?.entityId });
+        if (existing) {
+            return res.status(400).json({ error: 'A device with this ID/Serial already exists in your registry.' });
+        }
+        
         const device = new Device({ ...req.body, entityId: req.user?.entityId });
         await device.save();
         res.status(201).json(device);

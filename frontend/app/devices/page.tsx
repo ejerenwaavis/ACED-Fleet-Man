@@ -4,15 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader, Btn, Modal, Input, Select } from '@/components/fleet/UI';
 import { apiFetch } from '@/lib/api';
 import { exportToCsv } from '@/lib/exportCsv';
-import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download } from 'lucide-react';
+import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode } from 'lucide-react';
 import { useAuth } from '@/components/fleet/AuthProvider';
+import { BarcodeScanner } from '@/components/fleet/BarcodeScanner';
 
 export default function DevicesDashboard() {
   const { user } = useAuth();
   const [devices, setDevices] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form State
   const [deviceId, setDeviceId] = useState('');
@@ -76,26 +79,37 @@ export default function DevicesDashboard() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const payload = { deviceId, type, model, status, assignedVehicle, notes };
     try {
+      let res;
       if (isEditing && currentEditId) {
-        await apiFetch(`/api/devices/${currentEditId}`, {
+        res = await apiFetch(`/api/devices/${currentEditId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
-        await apiFetch('/api/devices', {
+        res = await apiFetch('/api/devices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       }
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to save device.');
+      }
+      
       setIsModalOpen(false);
       fetchDevices();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to save device.');
+      alert(e.message || 'Failed to save device.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -274,7 +288,26 @@ export default function DevicesDashboard() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditing ? 'Edit Device' : 'Add New Device'} maxWidth="max-w-lg">
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Device ID / Serial" value={deviceId} onChange={(e: any) => setDeviceId(e.target.value)} required />
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[var(--ink)] mb-1.5">Device ID / Serial</label>
+              <div className="relative">
+                <input 
+                  type="text"
+                  required
+                  value={deviceId}
+                  onChange={(e: any) => setDeviceId(e.target.value)}
+                  className="w-full pl-3 pr-10 py-2 border border-[var(--hairline)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--signal)] focus:border-transparent text-sm bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--steel)] hover:text-[var(--signal)] hover:bg-[var(--canvas)] rounded transition-colors"
+                  title="Scan Barcode / QR Code"
+                >
+                  <ScanBarcode className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
             <Input label="Model (Optional)" value={model} onChange={(e: any) => setModel(e.target.value)} />
           </div>
           
@@ -294,9 +327,21 @@ export default function DevicesDashboard() {
 
           <div className="pt-4 border-t border-[var(--hairline)] flex justify-end gap-2">
             <Btn variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Btn>
-            <Btn variant="primary" type="submit">{isEditing ? 'Save Changes' : 'Create Device'}</Btn>
+            <Btn variant="primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Processing...' : (isEditing ? 'Save Changes' : 'Create Device')}
+            </Btn>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} title="Scan Device Barcode" maxWidth="max-w-sm">
+        <BarcodeScanner 
+          onResult={(result) => {
+            setDeviceId(result);
+            setIsScannerOpen(false);
+          }} 
+          onClose={() => setIsScannerOpen(false)} 
+        />
       </Modal>
     </div>
   );

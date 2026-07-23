@@ -37,6 +37,7 @@ export default function ShopSettingsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     setSuccess(false);
     try {

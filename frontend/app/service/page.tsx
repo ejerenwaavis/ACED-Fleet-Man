@@ -24,6 +24,8 @@ export default function ServicePage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelInput, setCancelInput] = useState("");
+  const [cancelError, setCancelError] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -75,12 +77,15 @@ export default function ServicePage() {
     e.stopPropagation();
     setSelectedJob(job);
     setCancelInput("");
+    setCancelError("");
     setIsCancelModalOpen(true);
   };
 
   const confirmCancel = async () => {
     if (cancelInput !== "CANCEL" || !selectedJob) return;
     
+    setIsCancelling(true);
+    setCancelError("");
     try {
       const res = await apiFetch(`/api/maintenance/${selectedJob._id}/cancel`, { method: 'POST' });
       if (res.ok) {
@@ -88,11 +93,14 @@ export default function ServicePage() {
         setSelectedJob(null);
         fetchData();
       } else {
-        alert("Failed to cancel request");
+        const errorData = await res.json().catch(() => ({}));
+        setCancelError(`Failed to cancel request: ${errorData.error || 'Unknown error'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Error cancelling request");
+      setCancelError(`Error cancelling request: ${err.message}`);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -289,17 +297,22 @@ export default function ServicePage() {
             label="Confirmation"
             placeholder="Type CANCEL"
             value={cancelInput}
-            onChange={(e: any) => setCancelInput(e.target.value)}
+            onChange={(e: any) => { setCancelInput(e.target.value); setCancelError(""); }}
           />
+          {cancelError && (
+            <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-semibold">
+              {cancelError}
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-4">
             <Btn variant="outline" onClick={() => setIsCancelModalOpen(false)}>Back</Btn>
             <Btn 
               variant="primary" 
               onClick={confirmCancel} 
-              disabled={cancelInput !== "CANCEL"}
+              disabled={cancelInput !== "CANCEL" || isCancelling}
               className={cancelInput === "CANCEL" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
             >
-              Confirm Cancellation
+              {isCancelling ? 'Cancelling...' : 'Confirm Cancellation'}
             </Btn>
           </div>
         </div>

@@ -15,6 +15,7 @@ export default function TemplateFieldsEditor() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [newFieldType, setNewFieldType] = useState('checkbox');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
@@ -32,6 +33,8 @@ export default function TemplateFieldsEditor() {
   }, []);
 
   const handleSaveFields = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await apiFetch(`/api/walkthrough-templates`, {
         method: 'POST',
@@ -45,6 +48,8 @@ export default function TemplateFieldsEditor() {
     } catch (err) {
       console.error(err);
       alert('Failed to save fields');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -80,7 +85,9 @@ export default function TemplateFieldsEditor() {
           <PageHeader eyebrow={`Editing: ${template.name}`} title="Template Fields" />
         </div>
         <Btn variant="secondary" onClick={() => setIsModalOpen(true)} icon={Plus}>Add Field</Btn>
-        <Btn variant="primary" onClick={handleSaveFields} icon={Save}>Save All Changes</Btn>
+        <Btn variant="primary" onClick={handleSaveFields} icon={Save} disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : 'Save All Changes'}
+        </Btn>
       </div>
 
       <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mb-8">

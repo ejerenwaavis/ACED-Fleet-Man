@@ -1,12 +1,17 @@
 'use client';
 
-import React from "react";
-import { Truck } from "lucide-react";
+import React, { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { Truck, Loader2 } from "lucide-react";
 import { Btn } from "@/components/fleet/UI";
 import { getApiBase } from "@/lib/api";
 
-export default function LoginPage() {
+function LoginContent() {
   const API_BASE = getApiBase();
+  const searchParams = useSearchParams();
+  const redirect = searchParams?.get('redirect');
+
+  const googleUrl = `${API_BASE}/api/auth/google${redirect ? `?state=${encodeURIComponent(redirect)}` : ''}`;
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] flex flex-col items-center justify-center p-4">
@@ -23,7 +28,7 @@ export default function LoginPage() {
           Sign in to manage your vehicles, run inspections, and track maintenance records.
         </p>
 
-        <a href={`${API_BASE}/api/auth/google`} className="w-full">
+        <a href={googleUrl} className="w-full">
           <Btn variant="primary" className="w-full h-12 text-lg justify-center shadow-md hover:shadow-lg transition-all">
             <svg className="w-5 h-5 mr-3 bg-white rounded-full" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -40,5 +45,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--canvas)] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[var(--signal)]" /></div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

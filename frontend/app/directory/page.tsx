@@ -38,6 +38,7 @@ export default function DirectoryPage() {
 
   const handleRequest = async (e: any) => {
     e.preventDefault();
+    if (requesting) return;
     setRequesting(true);
     setSuccess(false);
     try {

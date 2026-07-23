@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Check, X, Send, ArrowLeft, Loader2 } from "lucide-react";
-import { PageHeader, Btn, Input } from "@/components/fleet/UI";
+import { PageHeader, Btn, Input, Modal } from "@/components/fleet/UI";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import Link from "next/link";
@@ -19,6 +19,8 @@ export default function DynamicWalkthrough() {
   const [loading, setLoading] = useState(true);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalState, setModalState] = useState<{isOpen: boolean, title: string, message: string, isSuccess: boolean}>({ isOpen: false, title: '', message: '', isSuccess: false });
 
   const isFetchingDraft = useRef(false);
 
@@ -106,7 +108,7 @@ export default function DynamicWalkthrough() {
 
   const handleSave = async () => {
     if (!selectedVehicle) {
-      alert("Please select a vehicle.");
+      setModalState({ isOpen: true, title: 'Validation Error', message: 'Please select a vehicle.', isSuccess: false });
       return;
     }
 
@@ -114,12 +116,13 @@ export default function DynamicWalkthrough() {
     if (template?.items) {
       for (const item of template.items) {
         if (item.required && !data[item.id]) {
-          alert(`Please fill out required field: ${item.label}`);
+          setModalState({ isOpen: true, title: 'Validation Error', message: `Please fill out required field: ${item.label}`, isSuccess: false });
           return;
         }
       }
     }
 
+    setIsSubmitting(true);
     try {
       await apiFetch(`/api/walkthrough-records`, {
         method: 'POST',
@@ -132,11 +135,12 @@ export default function DynamicWalkthrough() {
           maintenanceNote: notes
         })
       });
-      alert('Walkthrough submitted successfully!');
-      router.push('/');
+      setModalState({ isOpen: true, title: 'Success', message: 'Walkthrough submitted successfully!', isSuccess: true });
     } catch (err) {
       console.error(err);
-      alert('Failed to submit walkthrough.');
+      setModalState({ isOpen: true, title: 'Error', message: 'Failed to submit walkthrough.', isSuccess: false });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -242,14 +246,35 @@ export default function DynamicWalkthrough() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Btn variant="primary" icon={Send} className="w-full lg:w-auto px-8" onClick={handleSave}>
-                  Submit Walkthrough
+                <Btn variant="primary" icon={isSubmitting ? Loader2 : Send} className="w-full lg:w-auto px-8" onClick={handleSave} disabled={isSubmitting}>
+                  {isSubmitting ? 'Processing...' : 'Submit Walkthrough'}
                 </Btn>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      <Modal 
+        isOpen={modalState.isOpen} 
+        onClose={() => {
+          setModalState(s => ({ ...s, isOpen: false }));
+          if (modalState.isSuccess) router.push('/');
+        }} 
+        title={modalState.title}
+      >
+        <div className="py-4">
+          <p className="text-[var(--ink)]">{modalState.message}</p>
+          <div className="mt-6 flex justify-end">
+            <Btn variant="primary" onClick={() => {
+              setModalState(s => ({ ...s, isOpen: false }));
+              if (modalState.isSuccess) router.push('/');
+            }}>
+              OK
+            </Btn>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

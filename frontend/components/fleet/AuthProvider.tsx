@@ -61,7 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Onboarding redirect logic
-        if (loggedInUser.role === 'unassigned' && normalizedPath !== '/onboarding') {
+        const isJoinPage = normalizedPath.startsWith('/join/') || normalizedPath === '/join';
+        if (loggedInUser.role === 'unassigned' && normalizedPath !== '/onboarding' && !isJoinPage) {
           window.location.href = '/onboarding';
           return;
         }

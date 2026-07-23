@@ -86,6 +86,7 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
   };
   const handleSingleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isGenerating) return;
     setIsGenerating(true);
     setError(null);
     try {
@@ -137,6 +138,7 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
   };
 
   const handleBatchGenerate = async () => {
+    if (isGenerating) return;
     setIsGenerating(true);
     setError(null);
     try {

@@ -20,6 +20,7 @@ export function NewMaintenanceRequestModal({
 
   const handleMaintenanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     const formData = new FormData(e.target as HTMLFormElement);
     

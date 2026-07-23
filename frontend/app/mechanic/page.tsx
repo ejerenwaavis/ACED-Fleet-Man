@@ -17,6 +17,7 @@ export default function MechanicDashboard() {
   const [laborHours, setLaborHours] = useState("");
   const [laborRate, setLaborRate] = useState("");
   const [mechanicPhotos, setMechanicPhotos] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -46,6 +47,8 @@ export default function MechanicDashboard() {
 
   const handleUpdate = async (e: any) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const formData = new FormData();
       formData.append("status", updateStatus);
@@ -67,6 +70,8 @@ export default function MechanicDashboard() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -252,7 +257,9 @@ export default function MechanicDashboard() {
 
             <div className="flex justify-end gap-2 pt-4">
               <Btn type="button" variant="ghost" onClick={() => setIsUpdateModalOpen(false)}>Cancel</Btn>
-              <Btn type="submit" variant="primary">Save Changes</Btn>
+              <Btn type="submit" variant="primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Processing...' : 'Save Changes'}
+              </Btn>
             </div>
           </form>
         )}

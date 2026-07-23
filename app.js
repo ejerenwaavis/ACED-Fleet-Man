@@ -1077,7 +1077,7 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
     { name: 'insurance', maxCount: 1 }
 ]), async (req, res) => {
     try {
-        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry, dotExpiry } = req.body;
+        const { truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status, registrationExpiry, dotExpiry, lastKnownMileage } = req.body;
         
         const vehicleData = {
             truckNumber, routeNumber, makeModel, licensePlate, vin, fuelType, status,
@@ -1089,6 +1089,9 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
         }
         if (dotExpiry) {
             vehicleData.dotExpiry = new Date(dotExpiry);
+        }
+        if (lastKnownMileage !== undefined && lastKnownMileage !== '') {
+            vehicleData.lastKnownMileage = Number(lastKnownMileage);
         }
 
         if (req.files) {
@@ -1108,7 +1111,7 @@ app.post('/api/vehicles/:id', uploadVehicleDocs.fields([
         res.redirect('/vehicles');
     } catch (err) {
         console.error(err);
-        if (req.accepts('json')) return res.status(500).json({ error: 'Error updating vehicle' });
+        if (req.accepts('json')) return res.status(500).json({ error: err.message || 'Error updating vehicle' });
         res.status(500).send('Error updating vehicle');
     }
 });
@@ -1500,11 +1503,24 @@ app.post('/api/walkthrough-records/submit-all', async (req, res) => {
         const { templateId } = req.body;
         if (!templateId) return res.status(400).json({ error: 'Missing templateId' });
 
+        const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+        // Delete any extremely old, abandoned drafts to prevent them from ever being submitted accidentally
+        await WalkthroughRecord.deleteMany({
+            entityId: req.user?.entityId,
+            templateId,
+            reporterId: req.user?._id,
+            status: 'draft',
+            date: { $lt: twelveHoursAgo }
+        });
+
+        // Only submit drafts updated in the last 12 hours (the active session)
         const drafts = await WalkthroughRecord.find({
             entityId: req.user?.entityId,
             templateId,
             reporterId: req.user?._id,
-            status: 'draft'
+            status: 'draft',
+            date: { $gte: twelveHoursAgo }
         });
 
         const completedRecords = [];

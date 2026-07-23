@@ -2060,6 +2060,49 @@ app.post('/api/admin/check-overdue-invoices', isAuthenticated, async (req, res) 
         res.status(500).json({ error: err.message });
     }
 });
+// OCR API for scanning
+app.post('/api/ocr', async (req, res) => {
+    try {
+        const { image } = req.body; // Base64 image
+        if (!image) {
+            return res.status(400).json({ error: 'No image provided' });
+        }
+        
+        // Remove data:image/jpeg;base64, prefix if present
+        const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+
+        const fetch = (await import('node-fetch')).default || global.fetch;
+        const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${process.env.CLOUD_VISION}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requests: [
+                    {
+                        image: { content: base64Data },
+                        features: [{ type: 'TEXT_DETECTION' }]
+                    }
+                ]
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error("Google Cloud Vision Error:", data.error);
+            return res.status(500).json({ error: data.error.message || 'Vision API error' });
+        }
+        
+        const annotations = data.responses[0]?.textAnnotations;
+        if (annotations && annotations.length > 0) {
+            res.json({ text: annotations[0].description });
+        } else {
+            res.json({ text: '' });
+        }
+    } catch (err) {
+        console.error("OCR Error:", err);
+        res.status(500).json({ error: 'Failed to process image' });
+    }
+});
 
 // 10.5. Devices API
 app.get('/api/devices', async (req, res) => {

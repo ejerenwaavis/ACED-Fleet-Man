@@ -4,16 +4,21 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader, Btn, Modal, Input, Select } from '@/components/fleet/UI';
 import { apiFetch } from '@/lib/api';
 import { exportToCsv } from '@/lib/exportCsv';
-import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode } from 'lucide-react';
+import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode, Search } from 'lucide-react';
 import { useAuth } from '@/components/fleet/AuthProvider';
 import { BarcodeScanner } from '@/components/fleet/BarcodeScanner';
+import { OcrScanner } from '@/components/fleet/OcrScanner';
+import { useSearchParams } from 'next/navigation';
 
 export default function DevicesDashboard() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [devices, setDevices] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerMode, setScannerMode] = useState<'barcode' | 'text'>('barcode');
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -52,6 +57,25 @@ export default function DevicesDashboard() {
     fetchDevices();
     fetchVehicles();
   }, []);
+
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q !== null) {
+      setSearchQuery(q);
+    }
+  }, [searchParams]);
+
+  const filteredDevices = devices.filter(d => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (d.deviceId?.toLowerCase() || '').includes(q) ||
+      (d.type?.toLowerCase() || '').includes(q) ||
+      (d.model?.toLowerCase() || '').includes(q) ||
+      (d.status?.toLowerCase() || '').includes(q) ||
+      (d.assignedVehicle?.toLowerCase() || '').includes(q)
+    );
+  });
 
   const openAddModal = () => {
     setIsEditing(false);
@@ -213,6 +237,19 @@ export default function DevicesDashboard() {
         </div>
       </div>
 
+      <div className="flex items-center mb-4">
+        <div className="relative w-full max-w-md">
+          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--steel-light)]" />
+          <input 
+            type="text" 
+            placeholder="Search devices by ID, type, model, assignment..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-[var(--hairline)] rounded-xl bg-white focus:outline-none focus:border-[var(--signal)] focus:ring-1 focus:ring-[var(--signal)] text-sm"
+          />
+        </div>
+      </div>
+
       <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-[var(--canvas)] border-b border-[var(--hairline)]">
@@ -220,8 +257,8 @@ export default function DevicesDashboard() {
               {isExportMode && (
                 <th className="px-4 py-3 w-12 text-center">
                   <input type="checkbox" 
-                         checked={selectedExportIds.length === devices.length && devices.length > 0}
-                         onChange={(e) => setSelectedExportIds(e.target.checked ? devices.map((d: any) => d._id) : [])}
+                         checked={selectedExportIds.length === filteredDevices.length && filteredDevices.length > 0}
+                         onChange={(e) => setSelectedExportIds(e.target.checked ? filteredDevices.map((d: any) => d._id) : [])}
                          className="rounded border-[var(--hairline)]" />
                 </th>
               )}
@@ -234,7 +271,13 @@ export default function DevicesDashboard() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--hairline)]">
-            {devices.map(d => (
+            {filteredDevices.length === 0 ? (
+              <tr>
+                <td colSpan={isExportMode ? 7 : 6} className="px-4 py-8 text-center text-[var(--steel)]">
+                  No devices match your search.
+                </td>
+              </tr>
+            ) : filteredDevices.map(d => (
               <tr key={d._id} className="hover:bg-gray-50/50">
                 {isExportMode && (
                   <td className="px-4 py-3 text-center">
@@ -334,14 +377,39 @@ export default function DevicesDashboard() {
         </form>
       </Modal>
 
-      <Modal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} title="Scan Device Barcode" maxWidth="max-w-sm">
-        <BarcodeScanner 
-          onResult={(result) => {
-            setDeviceId(result);
-            setIsScannerOpen(false);
-          }} 
-          onClose={() => setIsScannerOpen(false)} 
-        />
+      <Modal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} title="Scan Device ID" maxWidth="max-w-sm">
+        <div className="mb-4 flex border-b border-[var(--hairline)]">
+          <button
+            className={`flex-1 py-2 text-sm font-semibold transition-colors ${scannerMode === 'barcode' ? 'border-b-2 border-[var(--signal)] text-[var(--signal)]' : 'text-[var(--steel)]'}`}
+            onClick={() => setScannerMode('barcode')}
+          >
+            Barcode / QR
+          </button>
+          <button
+            className={`flex-1 py-2 text-sm font-semibold transition-colors ${scannerMode === 'text' ? 'border-b-2 border-[var(--signal)] text-[var(--signal)]' : 'text-[var(--steel)]'}`}
+            onClick={() => setScannerMode('text')}
+          >
+            Text / IMEI
+          </button>
+        </div>
+
+        {scannerMode === 'barcode' ? (
+          <BarcodeScanner 
+            onResult={(result) => {
+              setDeviceId(result);
+              setIsScannerOpen(false);
+            }} 
+            onClose={() => setIsScannerOpen(false)} 
+          />
+        ) : (
+          <OcrScanner 
+            onResult={(result) => {
+              setDeviceId(result);
+              setIsScannerOpen(false);
+            }} 
+            onClose={() => setIsScannerOpen(false)} 
+          />
+        )}
       </Modal>
     </div>
   );

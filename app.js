@@ -1967,8 +1967,26 @@ app.put('/api/devices/:id', async (req, res) => {
 
 app.delete('/api/devices/:id', async (req, res) => {
     try {
+        if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+            return res.status(403).json({ error: 'Permission denied: Admins and Managers only' });
+        }
         await Device.findOneAndDelete({ _id: req.params.id, entityId: req.user?.entityId });
         res.json({ message: 'Device deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/vehicles/:id', async (req, res) => {
+    try {
+        if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+            return res.status(403).json({ error: 'Permission denied: Admins and Managers only' });
+        }
+        const vehicle = await Vehicle.findOneAndDelete({ _id: req.params.id, entityId: req.user?.entityId });
+        if (!vehicle) {
+            return res.status(404).json({ error: 'Vehicle not found' });
+        }
+        res.json({ message: 'Vehicle deleted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

@@ -5,8 +5,10 @@ import { PageHeader, Btn, Modal, Input, Select } from '@/components/fleet/UI';
 import { apiFetch } from '@/lib/api';
 import { exportToCsv } from '@/lib/exportCsv';
 import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download } from 'lucide-react';
+import { useAuth } from '@/components/fleet/AuthProvider';
 
 export default function DevicesDashboard() {
+  const { user } = useAuth();
   const [devices, setDevices] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -252,7 +254,9 @@ export default function DevicesDashboard() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => openEditModal(d)} className="p-1 text-[var(--steel)] hover:text-[var(--signal)] transition-colors"><Edit2 className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(d._id)} className="p-1 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+                  {(user?.role === 'admin' || user?.role === 'manager') && (
+                    <button onClick={() => handleDelete(d._id)} className="p-1 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+                  )}
                 </td>
               </tr>
             ))}

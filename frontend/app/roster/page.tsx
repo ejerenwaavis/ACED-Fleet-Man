@@ -1,17 +1,19 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Plus, ListFilter, AlertTriangle, Upload, Barcode, FileText, Download } from "lucide-react";
+import { Plus, ListFilter, AlertTriangle, Upload, Barcode, FileText, Download, Trash2 } from "lucide-react";
 import { PageHeader, Btn, ManifestTag, StatusPill, OilGauge, Modal, Input, Select } from "@/components/fleet/UI";
 import { exportToCsv } from "@/lib/exportCsv";
 import { BulkUploadModal } from "@/components/fleet/BulkUploadModal";
 import { GenerateMmrModal } from "@/components/fleet/GenerateMmrModal";
 import { useSearchParams } from 'next/navigation';
 import { getApiBase, apiFetch } from "@/lib/api";
+import { useAuth } from "@/components/fleet/AuthProvider";
 
 export default function FleetRoster() {
   const API_BASE = getApiBase();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const [vehicles, setVehicles] = useState([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
@@ -21,6 +23,22 @@ export default function FleetRoster() {
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleDeleteVehicle = async (id: string, truckNumber: string) => {
+    if (!confirm(`Are you sure you want to permanently delete vehicle ${truckNumber}? This action cannot be undone.`)) return;
+    try {
+      const res = await apiFetch(`/api/vehicles/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(`Failed to delete: ${errorData.error || 'Unknown error'}`);
+        return;
+      }
+      fetchVehicles();
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting vehicle.');
+    }
+  };
 
   // Core fields for both export formats: unit number, VIN, and last known mileage are the
   // must-haves; registration/DOT expiration are included too since they were asked for, but are
@@ -438,6 +456,11 @@ export default function FleetRoster() {
                   <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)}>MMR</Btn>
                   <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)}>ID Tags</Btn>
                   <Btn variant="ghost" onClick={() => setEditingTruck(v)}>Edit</Btn>
+                  {(user?.role === 'admin' || user?.role === 'manager') && (
+                    <button onClick={() => handleDeleteVehicle(v._id, v.truckNumber)} className="p-2 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2" title="Delete Truck">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -487,6 +510,11 @@ export default function FleetRoster() {
                 <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)}>MMR</Btn>
                 <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)}>ID Tags</Btn>
                 <Btn variant="ghost" onClick={() => setEditingTruck(v)}>Edit</Btn>
+                {(user?.role === 'admin' || user?.role === 'manager') && (
+                  <button onClick={() => handleDeleteVehicle(v._id, v.truckNumber)} className="p-2 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2" title="Delete Truck">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>

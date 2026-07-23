@@ -213,7 +213,7 @@ export default function DevicesDashboard() {
         </div>
       </div>
 
-      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-[var(--canvas)] border-b border-[var(--hairline)]">
             <tr>

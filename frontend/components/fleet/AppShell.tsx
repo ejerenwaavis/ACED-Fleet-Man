@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="bg-[var(--canvas)] min-h-screen flex flex-col lg:flex-row pb-[72px] lg:pb-0">
+    <div className="bg-[var(--canvas)] min-h-[100dvh] flex flex-col lg:flex-row pb-[72px] lg:pb-0">
       
       {/* Mobile Top Bar */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-[var(--surface)] border-b border-[var(--hairline)] sticky top-0 z-40">

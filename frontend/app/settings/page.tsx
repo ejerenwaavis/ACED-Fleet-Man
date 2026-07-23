@@ -117,7 +117,7 @@ export default function Settings() {
       </div>
 
       {requests.length > 0 && (
-        <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">
+        <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto mt-6 mb-8">
           <div className="p-5 border-b border-[var(--hairline)] bg-amber-50/30">
             <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
               <Users className="w-5 h-5 text-amber-600" /> Pending Team Requests
@@ -143,7 +143,7 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">
+      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto mt-6 mb-8">
         <div className="p-5 border-b border-[var(--hairline)]">
           <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
             <Shield className="w-5 h-5 text-[var(--signal)]" /> Team Members
@@ -203,7 +203,7 @@ export default function Settings() {
         </table>
       </div>
 
-      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">
+      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto mt-6 mb-8">
         <div className="p-5 border-b border-[var(--hairline)]">
           <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
             <Plus className="w-5 h-5 text-[var(--signal)]" /> Invite Team Members

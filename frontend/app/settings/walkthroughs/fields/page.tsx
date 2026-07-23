@@ -90,7 +90,7 @@ export default function TemplateFieldsEditor() {
         </Btn>
       </div>
 
-      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mb-8">
+      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto mb-8">
         <div className="p-4 bg-gray-50/50 border-b border-[var(--hairline)]">
           <h3 className="font-semibold text-[var(--ink)]">Form Fields</h3>
           <p className="text-sm text-[var(--steel)]">Configure the checklist items and questions for this walkthrough.</p>

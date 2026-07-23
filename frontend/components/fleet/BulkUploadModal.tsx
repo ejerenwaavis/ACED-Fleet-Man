@@ -254,7 +254,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
               <span className="text-xs bg-[var(--signal)] text-white px-2 py-0.5 rounded-full font-bold">{parsedData.length} records</span>
             </div>
             
-            <div className="border border-[var(--hairline)] rounded-lg overflow-hidden max-h-60 overflow-y-auto bg-white">
+            <div className="border border-[var(--hairline)] rounded-lg overflow-x-auto max-h-60 overflow-y-auto bg-white">
               <table className="w-full text-left text-xs">
                 <thead className="bg-gray-50 sticky top-0 border-b border-[var(--hairline)] shadow-sm">
                   <tr>

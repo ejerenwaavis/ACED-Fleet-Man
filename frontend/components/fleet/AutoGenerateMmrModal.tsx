@@ -199,7 +199,7 @@ export function AutoGenerateMmrModal({ isOpen, onClose }: AutoGenerateMmrModalPr
           )}
         </div>
         
-        <div className="border border-[var(--hairline)] rounded-xl overflow-hidden max-h-[400px] overflow-y-auto">
+        <div className="border border-[var(--hairline)] rounded-xl overflow-x-auto max-h-[400px] overflow-y-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead className="bg-[var(--canvas)] sticky top-0 border-b border-[var(--hairline)] z-10">
               <tr>

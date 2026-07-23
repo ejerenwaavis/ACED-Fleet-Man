@@ -111,6 +111,7 @@ export default function DynamicWalkthrough() {
     }
 
     try {
+      // 1. Submit the currently open walkthrough
       await apiFetch(`/api/walkthrough-records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,7 +122,17 @@ export default function DynamicWalkthrough() {
           maintenanceNote: notes
         })
       });
-      alert('Walkthrough submitted successfully!');
+
+      // 2. Submit all other auto-saved drafts for this walkthrough session
+      await apiFetch(`/api/walkthrough-records/submit-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateId: templateId
+        })
+      });
+
+      alert('Walkthrough submitted successfully for all vehicles!');
       router.push('/');
     } catch (err) {
       console.error(err);

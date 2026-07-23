@@ -1495,6 +1495,102 @@ app.post('/api/walkthrough-records', async (req, res) => {
     }
 });
 
+app.post('/api/walkthrough-records/submit-all', async (req, res) => {
+    try {
+        const { templateId } = req.body;
+        if (!templateId) return res.status(400).json({ error: 'Missing templateId' });
+
+        const drafts = await WalkthroughRecord.find({
+            entityId: req.user?.entityId,
+            templateId,
+            reporterId: req.user?._id,
+            status: 'draft'
+        });
+
+        const completedRecords = [];
+
+        for (let record of drafts) {
+            // Mileage Discrepancy Engine
+            let mileage = record.mileage;
+            let maintenanceNote = record.maintenanceNote || '';
+
+            if (mileage) {
+                const lastRecord = await WalkthroughRecord.findOne({
+                    vehicleId: record.vehicleId,
+                    status: 'completed'
+                }).sort('-date');
+                
+                if (lastRecord && lastRecord.mileage) {
+                    if (mileage < lastRecord.mileage) {
+                        maintenanceNote = (maintenanceNote ? maintenanceNote + '\n\n' : '') + 
+                            `[SYSTEM FLAG] Odometer discrepancy: New mileage (${mileage}) is lower than previous (${lastRecord.mileage}).`;
+                    }
+                }
+            }
+
+            record.maintenanceNote = maintenanceNote;
+            record.status = 'completed';
+            record.date = new Date();
+            await record.save();
+
+            // Persist mileage to the vehicle
+            if (mileage) {
+                try {
+                    const vehicleForMileage = await Vehicle.findById(record.vehicleId);
+                    if (vehicleForMileage) {
+                        vehicleForMileage.lastKnownMileage = Number(mileage);
+                        await vehicleForMileage.save();
+                    }
+                } catch (mileageErr) {
+                    console.error('Failed to update vehicle mileage from walkthrough', mileageErr);
+                }
+            }
+
+            // Mechanic Routing / Ticket Generation
+            const failedItems = [];
+            if (record.data) {
+                for (const [key, value] of Object.entries(record.data)) {
+                    if (value === 'fail') {
+                        failedItems.push(key.replace(/_/g, ' '));
+                    }
+                }
+            }
+            
+            if (failedItems.length > 0 || maintenanceNote) {
+                const openRequest = await MaintenanceRequest.findOne({
+                    vehicleId: record.vehicleId,
+                    status: { $in: ['pending', 'assigned', 'accepted', 'in-progress', 'awaiting-parts'] }
+                });
+                
+                if (!openRequest) {
+                    let desc = '';
+                    if (failedItems.length > 0) desc += `Failed walkthrough checks: ${failedItems.join(', ')}.\n`;
+                    if (maintenanceNote) desc += `Driver Note: ${maintenanceNote}`;
+                    
+                    const newRequest = new MaintenanceRequest({
+                        entityId: req.user?.entityId,
+                        title: `Auto-generated from Walkthrough (${new Date(record.date).toLocaleDateString()})`,
+                        description: desc,
+                        requestType: 'Vehicle Issue',
+                        vehicleId: record.vehicleId,
+                        reportedBy: req.user?._id,
+                        status: 'pending',
+                        priority: 'medium'
+                    });
+                    await newRequest.save();
+                }
+            }
+
+            completedRecords.push(record);
+        }
+
+        res.json({ message: 'Submitted all drafts', count: completedRecords.length });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to submit all walkthroughs' });
+    }
+});
+
 app.get('/api/walkthrough-records/draft', async (req, res) => {
     try {
         const { templateId, vehicleId } = req.query;

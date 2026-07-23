@@ -80,11 +80,17 @@ export function OcrScanner({ onResult, onClose }: OcrScannerProps) {
     setIsProcessing(true);
     setError(null);
     
-    // Set canvas dimensions to match video
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    
+    // Calculate crop box (targeting the center of the video, matching the UI reticle roughly)
+    const cropWidth = video.videoWidth * 0.75;
+    const cropHeight = video.videoHeight * 0.35; // 35% of video height
+    const cropX = (video.videoWidth - cropWidth) / 2;
+    const cropY = (video.videoHeight - cropHeight) / 2;
+    
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
     
     // Draw the current video frame to the canvas
     const ctx = canvas.getContext('2d');
@@ -94,7 +100,7 @@ export function OcrScanner({ onResult, onClose }: OcrScannerProps) {
       return;
     }
     
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
     
     // Get image data as base64
     const imageData = canvas.toDataURL('image/jpeg');
@@ -143,11 +149,14 @@ export function OcrScanner({ onResult, onClose }: OcrScannerProps) {
       }
       
       if (text) {
+        // Format text to add spacing (replace newlines/extra whitespace with ' - ')
+        const formattedText = text.replace(/[\r\n]+/g, ' - ').replace(/\s{2,}/g, ' ');
+        
         // Stop stream before passing result
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
         }
-        onResult(text);
+        onResult(formattedText);
       } else {
         setError("Could not read any text. Please try again.");
       }
@@ -201,7 +210,6 @@ export function OcrScanner({ onResult, onClose }: OcrScannerProps) {
         {/* Targeting reticle */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
           <div className="w-3/4 h-24 border-2 border-[var(--signal)] rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] flex items-center justify-center">
-            <span className="text-white/50 text-xs tracking-widest font-semibold uppercase">Align Text Here</span>
           </div>
         </div>
         

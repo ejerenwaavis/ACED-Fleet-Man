@@ -7,6 +7,7 @@ import { GenerateMmrModal } from "@/components/fleet/GenerateMmrModal";
 import { AutoGenerateMmrModal } from "@/components/fleet/AutoGenerateMmrModal";
 import { apiFetch } from "@/lib/api";
 import { exportToCsv } from "@/lib/exportCsv";
+import { exportToPdf } from "@/lib/exportPdf";
 
 export default function MaintenanceRecords() {
   const [records, setRecords] = useState([]);
@@ -39,6 +40,15 @@ export default function MaintenanceRecords() {
               }));
               exportToCsv('Maintenance_Records_Export', dataToExport);
             }}>Export CSV</Btn>
+            <Btn variant="ghost" icon={FileText} onClick={() => {
+              const dataToExport = records.map((r: any) => ({
+                'Date': new Date(r.createdAt).toLocaleDateString(),
+                'Truck Number': r.vehicleId?.truckNumber || 'N/A',
+                'Route Number': r.vehicleId?.routeNumber || 'N/A',
+                'Mileage': r.mileage
+              }));
+              exportToPdf('Maintenance Records Export', dataToExport);
+            }}>Export PDF</Btn>
             <Btn variant="primary" icon={Download} onClick={() => setIsAutoMmrModalOpen(true)}>Auto-Generate Fleet MMRs</Btn>
             <Btn variant="ghost" icon={Download} onClick={() => setIsMmrModalOpen(true)}>Batch Generate</Btn>
           </>

@@ -6,8 +6,9 @@ import { PageHeader, Btn, JobStatusPill, Modal, Input } from "@/components/fleet
 import { NewMaintenanceRequestModal } from "@/components/fleet/NewMaintenanceRequestModal";
 import { apiFetch } from "@/lib/api";
 import { exportToCsv } from "@/lib/exportCsv";
+import { exportToPdf } from "@/lib/exportPdf";
 import { useAuth } from "@/components/fleet/AuthProvider";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 
 export default function ServicePage() {
   const { user } = useAuth();
@@ -194,6 +195,18 @@ export default function ServicePage() {
               }));
               exportToCsv('Maintenance_Requests_Export', dataToExport);
             }}>Export CSV</Btn>
+            <Btn variant="ghost" icon={FileText} onClick={() => {
+              const dataToExport = filteredRequests.map((r: any) => ({
+                'Date': new Date(r.createdAt).toLocaleDateString(),
+                'Title': r.title,
+                'Type': r.requestType,
+                'Asset ID': r.vehicleId || r.deviceId?.deviceId || 'N/A',
+                'Status': r.status,
+                'Priority': r.priority,
+                'Mechanic': r.assignedMechanicId?.displayName || 'Unassigned'
+              }));
+              exportToPdf('Service & Repairs Export', dataToExport);
+            }}>Export PDF</Btn>
             <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New Request</Btn>
           </div>
         }

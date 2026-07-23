@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader, Btn, Modal, Input, Select } from '@/components/fleet/UI';
 import { apiFetch } from '@/lib/api';
 import { exportToCsv } from '@/lib/exportCsv';
-import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode, Search } from 'lucide-react';
+import { exportToPdf } from '@/lib/exportPdf';
+import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode, Search, FileText } from 'lucide-react';
 import { useAuth } from '@/components/fleet/AuthProvider';
 import { BarcodeScanner } from '@/components/fleet/BarcodeScanner';
 import { OcrScanner } from '@/components/fleet/OcrScanner';
@@ -193,7 +194,22 @@ export default function DevicesDashboard() {
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-[var(--steel)]">{selectedExportIds.length} selected</span>
               <Btn variant="ghost" onClick={() => { setIsExportMode(false); setSelectedExportIds([]); }}>Cancel</Btn>
-              <Btn variant="primary" icon={Download} onClick={() => {
+              <Btn variant="ghost" icon={FileText} disabled={!selectedExportIds.length} onClick={() => {
+                const selectedDevices = devices.filter(d => selectedExportIds.includes(d._id));
+                const dataToExport = selectedDevices.map(d => ({
+                  'Device ID': d.deviceId,
+                  'Type': d.type,
+                  'Model': d.model || 'N/A',
+                  'Status': d.status,
+                  'Assigned Vehicle': d.assignedVehicle || 'Unassigned',
+                  'Notes': d.notes || '',
+                  'Added On': new Date(d.createdAt).toLocaleDateString()
+                }));
+                exportToPdf('Assets & Devices Export', dataToExport);
+                setIsExportMode(false);
+                setSelectedExportIds([]);
+              }}>Export PDF</Btn>
+              <Btn variant="primary" icon={Download} disabled={!selectedExportIds.length} onClick={() => {
                 const selectedDevices = devices.filter(d => selectedExportIds.includes(d._id));
                 const dataToExport = selectedDevices.map(d => ({
                   'Device ID': d.deviceId,

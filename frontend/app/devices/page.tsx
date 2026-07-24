@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PageHeader, Btn, Modal, Input, Select } from '@/components/fleet/UI';
 import { apiFetch } from '@/lib/api';
 import { exportToCsv } from '@/lib/exportCsv';
-import { exportToPdf } from '@/lib/exportPdf';
+import { exportToPdf, exportGroupedToPdf } from '@/lib/exportPdf';
 import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode, Search, FileText } from 'lucide-react';
 import { useAuth } from '@/components/fleet/AuthProvider';
 import { BarcodeScanner } from '@/components/fleet/BarcodeScanner';
@@ -173,6 +173,7 @@ export default function DevicesDashboard() {
     const dataToExport = devices.map(d => ({
       'Device ID': d.deviceId,
       'Type': d.type,
+      'IMEI': d.imei || 'N/A',
       'Model': d.model || 'N/A',
       'Status': d.status,
       'Assigned Vehicle': d.assignedVehicle || 'Unassigned',
@@ -216,16 +217,23 @@ export default function DevicesDashboard() {
               <Btn variant="ghost" onClick={() => { setIsExportMode(false); setSelectedExportIds([]); }}>Cancel</Btn>
               <Btn variant="ghost" icon={FileText} disabled={!selectedExportIds.length} onClick={() => {
                 const selectedDevices = devices.filter(d => selectedExportIds.includes(d._id));
-                const dataToExport = selectedDevices.map(d => ({
-                  'Device ID': d.deviceId,
-                  'Type': d.type,
-                  'Model': d.model || 'N/A',
-                  'Status': d.status,
-                  'Assigned Vehicle': d.assignedVehicle || 'Unassigned',
-                  'Notes': d.notes || '',
-                  'Added On': new Date(d.createdAt).toLocaleDateString()
-                }));
-                exportToPdf('Assets & Devices Export', dataToExport);
+                const types = Array.from(new Set(selectedDevices.map(d => d.type)));
+                const groups = types.map(t => {
+                  const typeRows = selectedDevices.filter(d => d.type === t).map(d => {
+                    const row: Record<string, string> = {
+                      'Device ID': d.deviceId
+                    };
+                    if (t === 'ipad' || t === 'scanner') {
+                      row['IMEI'] = d.imei || 'N/A';
+                    }
+                    row['Assigned Truck'] = d.assignedVehicle ? `Truck ${d.assignedVehicle}` : 'Unassigned';
+                    row['Model'] = d.model || 'N/A';
+                    row['Status'] = d.status;
+                    return row;
+                  });
+                  return { section: String(t).toUpperCase() + 'S', rows: typeRows };
+                });
+                exportGroupedToPdf('Assets & Devices Export', groups);
                 setIsExportMode(false);
                 setSelectedExportIds([]);
               }}>Export PDF</Btn>
@@ -234,6 +242,7 @@ export default function DevicesDashboard() {
                 const dataToExport = selectedDevices.map(d => ({
                   'Device ID': d.deviceId,
                   'Type': d.type,
+                  'IMEI': d.imei || 'N/A',
                   'Model': d.model || 'N/A',
                   'Status': d.status,
                   'Assigned Vehicle': d.assignedVehicle || 'Unassigned',
@@ -247,7 +256,7 @@ export default function DevicesDashboard() {
             </div>
           ) : (
             <>
-              <Btn variant="ghost" icon={Download} onClick={() => setIsExportMode(true)}>Export CSV</Btn>
+              <Btn variant="ghost" icon={Download} onClick={() => setIsExportMode(true)}>Export Details</Btn>
               <Btn variant="primary" icon={Plus} onClick={openAddModal}>Add Device</Btn>
             </>
           )

@@ -1892,8 +1892,17 @@ app.get('/api/vehicles-data', async (req, res) => {
     try {
         const vehicles = await Vehicle.find({ entityId: req.user?.entityId })
             .collation({ locale: 'en_US', numericOrdering: true })
-            .sort('truckNumber');
-        res.json(vehicles);
+            .sort('truckNumber')
+            .lean();
+            
+        const devices = await Device.find({ entityId: req.user?.entityId, status: 'Assigned' }).lean();
+        
+        const vehiclesWithDevices = vehicles.map(v => {
+            v.devices = devices.filter(d => d.assignedVehicle === v.truckNumber);
+            return v;
+        });
+
+        res.json(vehiclesWithDevices);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -2121,6 +2130,13 @@ app.post('/api/devices', async (req, res) => {
             return res.status(400).json({ error: 'A device with this ID/Serial already exists in your registry.' });
         }
         
+        if (req.body.status === 'Assigned' && req.body.assignedVehicle) {
+            await Device.updateMany(
+                { entityId: req.user?.entityId, type: req.body.type, assignedVehicle: req.body.assignedVehicle },
+                { $set: { status: 'Spare', assignedVehicle: '' } }
+            );
+        }
+        
         const device = new Device({ ...req.body, entityId: req.user?.entityId });
         await device.save();
         res.status(201).json(device);
@@ -2131,6 +2147,12 @@ app.post('/api/devices', async (req, res) => {
 
 app.put('/api/devices/:id', async (req, res) => {
     try {
+        if (req.body.status === 'Assigned' && req.body.assignedVehicle) {
+            await Device.updateMany(
+                { entityId: req.user?.entityId, type: req.body.type, assignedVehicle: req.body.assignedVehicle, _id: { $ne: req.params.id } },
+                { $set: { status: 'Spare', assignedVehicle: '' } }
+            );
+        }
         const device = await Device.findOneAndUpdate(
             { _id: req.params.id, entityId: req.user?.entityId },
             req.body,

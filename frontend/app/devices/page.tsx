@@ -19,7 +19,9 @@ export default function DevicesDashboard() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerTarget, setScannerTarget] = useState<'deviceId' | 'imei'>('deviceId');
   const [scannerMode, setScannerMode] = useState<'barcode' | 'text'>('barcode');
+  const [activeTab, setActiveTab] = useState('All');
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -27,6 +29,7 @@ export default function DevicesDashboard() {
   const [deviceId, setDeviceId] = useState('');
   const [type, setType] = useState('scanner');
   const [model, setModel] = useState('');
+  const [imei, setImei] = useState('');
   const [status, setStatus] = useState('Spare');
   const [assignedVehicle, setAssignedVehicle] = useState('');
   const [notes, setNotes] = useState('');
@@ -67,6 +70,7 @@ export default function DevicesDashboard() {
   }, [searchParams]);
 
   const filteredDevices = devices.filter(d => {
+    if (activeTab !== 'All' && d.type?.toLowerCase() !== activeTab.toLowerCase()) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -84,6 +88,7 @@ export default function DevicesDashboard() {
     setDeviceId('');
     setType('scanner');
     setModel('');
+    setImei('');
     setStatus('Spare');
     setAssignedVehicle('');
     setNotes('');
@@ -96,6 +101,7 @@ export default function DevicesDashboard() {
     setDeviceId(d.deviceId);
     setType(d.type);
     setModel(d.model || '');
+    setImei(d.imei || '');
     setStatus(d.status);
     setAssignedVehicle(d.assignedVehicle || '');
     setNotes(d.notes || '');
@@ -105,8 +111,22 @@ export default function DevicesDashboard() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    
+    if (status === 'Assigned' && assignedVehicle) {
+      const existingDevice = devices.find(d => 
+        d.assignedVehicle === assignedVehicle && 
+        d.type === type && 
+        d._id !== currentEditId
+      );
+      if (existingDevice) {
+        if (!confirm(`Truck ${assignedVehicle} already has a ${type} assigned to it (ID: ${existingDevice.deviceId}). Proceeding will unassign the previous device. Do you want to continue?`)) {
+          return;
+        }
+      }
+    }
+    
     setIsSubmitting(true);
-    const payload = { deviceId, type, model, status, assignedVehicle, notes };
+    const payload = { deviceId, type, model, imei, status, assignedVehicle, notes };
     try {
       let res;
       if (isEditing && currentEditId) {
@@ -265,6 +285,22 @@ export default function DevicesDashboard() {
           />
         </div>
       </div>
+      
+      <div className="flex overflow-x-auto border-b border-[var(--hairline)] mb-4 hide-scrollbar">
+        {['All', 'Scanner', 'iPad', 'Camera', 'Radar', 'Other'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`whitespace-nowrap px-4 py-3 font-medium text-sm transition-colors border-b-2 ${
+              activeTab === tab 
+                ? 'border-[var(--signal)] text-[var(--signal)]'
+                : 'border-transparent text-[var(--steel)] hover:text-[var(--ink)] hover:border-[var(--hairline)]'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
 
       <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto shadow-sm">
         <table className="w-full text-left text-sm">
@@ -359,7 +395,7 @@ export default function DevicesDashboard() {
                 />
                 <button
                   type="button"
-                  onClick={() => setIsScannerOpen(true)}
+                  onClick={() => { setScannerTarget('deviceId'); setIsScannerOpen(true); }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--steel)] hover:text-[var(--signal)] hover:bg-[var(--canvas)] rounded transition-colors"
                   title="Scan Barcode / QR Code"
                 >
@@ -369,6 +405,33 @@ export default function DevicesDashboard() {
             </div>
             <Input label="Model (Optional)" value={model} onChange={(e: any) => setModel(e.target.value)} />
           </div>
+          
+          {(type === 'ipad' || type === 'scanner') && (
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              <div className="relative w-full">
+                <label className="block text-sm font-medium text-[var(--ink)] mb-1.5">
+                  IMEI (Required for {type === 'ipad' ? 'iPad' : 'Scanner'})
+                </label>
+                <div className="relative">
+                  <input 
+                    type="text"
+                    required
+                    value={imei}
+                    onChange={(e: any) => setImei(e.target.value)}
+                    className="w-full pl-3 pr-10 py-2 border border-[var(--hairline)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--signal)] focus:border-transparent text-sm bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setScannerTarget('imei'); setIsScannerOpen(true); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--steel)] hover:text-[var(--signal)] hover:bg-[var(--canvas)] rounded transition-colors"
+                    title="Scan Barcode / QR Code"
+                  >
+                    <ScanBarcode className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           
           <div className="grid grid-cols-2 gap-4">
             <Select label="Type" options={typeOptions} value={type} onChange={(e: any) => setType(e.target.value)} required />
@@ -393,7 +456,7 @@ export default function DevicesDashboard() {
         </form>
       </Modal>
 
-      <Modal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} title="Scan Device ID" maxWidth="max-w-sm">
+      <Modal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} title={`Scan ${scannerTarget === 'deviceId' ? 'Device ID' : 'IMEI'}`} maxWidth="max-w-sm">
         <div className="mb-4 flex border-b border-[var(--hairline)]">
           <button
             className={`flex-1 py-2 text-sm font-semibold transition-colors ${scannerMode === 'barcode' ? 'border-b-2 border-[var(--signal)] text-[var(--signal)]' : 'text-[var(--steel)]'}`}
@@ -412,7 +475,8 @@ export default function DevicesDashboard() {
         {scannerMode === 'barcode' ? (
           <BarcodeScanner 
             onResult={(result) => {
-              setDeviceId(result);
+              if (scannerTarget === 'deviceId') setDeviceId(result);
+              else setImei(result);
               setIsScannerOpen(false);
             }} 
             onClose={() => setIsScannerOpen(false)} 
@@ -420,7 +484,8 @@ export default function DevicesDashboard() {
         ) : (
           <OcrScanner 
             onResult={(result) => {
-              setDeviceId(result);
+              if (scannerTarget === 'deviceId') setDeviceId(result);
+              else setImei(result);
               setIsScannerOpen(false);
             }} 
             onClose={() => setIsScannerOpen(false)} 

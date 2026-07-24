@@ -5,6 +5,7 @@ const deviceSchema = new mongoose.Schema({
     type: { type: String, enum: ['scanner', 'ipad', 'radar', 'camera', 'other'], required: true },
     deviceId: { type: String, required: true },
     model: { type: String },
+    imei: { type: String },
     status: { type: String, enum: ['Assigned', 'Faulty', 'In Repair', 'Retired', 'Spare'], default: 'Spare' },
     assignedVehicle: { type: String }, // Truck number
     notes: { type: String },

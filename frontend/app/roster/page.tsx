@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Plus, ListFilter, AlertTriangle, Upload, Barcode, FileText, Download, Trash2, ArrowUp, ArrowDown, Search, MoreVertical } from "lucide-react";
+import { Plus, ListFilter, AlertTriangle, Upload, Barcode, FileText, Download, Trash2, ArrowUp, ArrowDown, Search, MoreVertical, TabletSmartphone, ScanBarcode, Video } from "lucide-react";
 import { PageHeader, Btn, ManifestTag, StatusPill, OilGauge, Modal, Input, Select } from "@/components/fleet/UI";
 import { exportToCsv } from "@/lib/exportCsv";
 import { BulkUploadModal } from "@/components/fleet/BulkUploadModal";
@@ -54,13 +54,22 @@ export default function FleetRoster() {
 
   const buildExportRows = () => {
     const selectedVehicles = vehicles.filter((v: any) => selectedExportIds.includes(v._id));
-    return selectedVehicles.map((v: any) => ({
-      'Truck Number': v.truckNumber || 'N/A',
-      'VIN': v.vin || 'N/A',
-      'Last Known Mileage': v.lastKnownMileage ? formatMileage(v.lastKnownMileage) : 'N/A',
-      'Registration Expiry': v.registrationExpiry ? new Date(v.registrationExpiry).toLocaleDateString() : 'N/A',
-      'DOT Expiry': v.dotExpiry ? new Date(v.dotExpiry).toLocaleDateString() : 'N/A'
-    }));
+    return selectedVehicles.map((v: any) => {
+      const scanner = v.devices?.find((d: any) => d.type === 'scanner');
+      const camera = v.devices?.find((d: any) => d.type === 'camera');
+      const ipad = v.devices?.find((d: any) => d.type === 'ipad');
+
+      return {
+        'Truck Number': v.truckNumber || 'N/A',
+        'VIN': v.vin || 'N/A',
+        'Last Known Mileage': v.lastKnownMileage ? formatMileage(v.lastKnownMileage) : 'N/A',
+        'Scanner Serial & Model': scanner ? `${scanner.deviceId}${scanner.model ? ` (${scanner.model})` : ''}${scanner.imei ? ` [IMEI: ${scanner.imei}]` : ''}` : 'N/A',
+        'Camera Serial & Model': camera ? `${camera.deviceId}${camera.model ? ` (${camera.model})` : ''}` : 'N/A',
+        'iPad IMEI': ipad?.imei ? ipad.imei : (ipad ? 'No IMEI' : 'N/A'),
+        'Registration Expiry': v.registrationExpiry ? new Date(v.registrationExpiry).toLocaleDateString() : 'N/A',
+        'DOT Expiry': v.dotExpiry ? new Date(v.dotExpiry).toLocaleDateString() : 'N/A'
+      };
+    });
   };
 
   const escapeHtml = (value: unknown) =>
@@ -543,8 +552,15 @@ export default function FleetRoster() {
                   </td>
                 )}
                 <td className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <ManifestTag route={v.routeNumber} id={v.truckNumber} />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                      <ManifestTag route={v.routeNumber} id={v.truckNumber} />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[var(--steel)]">
+                      {v.devices?.some((d: any) => d.type === 'ipad') && <span title="iPad Assigned"><TabletSmartphone className="w-3.5 h-3.5" /></span>}
+                      {v.devices?.some((d: any) => d.type === 'scanner') && <span title="Scanner Assigned"><ScanBarcode className="w-3.5 h-3.5" /></span>}
+                      {v.devices?.some((d: any) => d.type === 'camera') && <span title="Camera Assigned"><Video className="w-3.5 h-3.5" /></span>}
+                    </div>
                   </div>
                 </td>
                 <td className="px-5 py-4"><StatusPill status={v.status} /></td>
@@ -598,7 +614,14 @@ export default function FleetRoster() {
                     className="w-5 h-5 rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]"
                   />
                 )}
-                <ManifestTag route={v.routeNumber} id={v.truckNumber} size="lg" />
+                <div className="flex flex-col gap-2">
+                  <ManifestTag route={v.routeNumber} id={v.truckNumber} size="lg" />
+                  <div className="flex items-center gap-1.5 text-[var(--steel)]">
+                    {v.devices?.some((d: any) => d.type === 'ipad') && <span title="iPad Assigned"><TabletSmartphone className="w-4 h-4" /></span>}
+                    {v.devices?.some((d: any) => d.type === 'scanner') && <span title="Scanner Assigned"><ScanBarcode className="w-4 h-4" /></span>}
+                    {v.devices?.some((d: any) => d.type === 'camera') && <span title="Camera Assigned"><Video className="w-4 h-4" /></span>}
+                  </div>
+                </div>
               </div>
               <StatusPill status={v.status} />
             </div>

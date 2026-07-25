@@ -34,7 +34,10 @@ export default function DevicesDashboard() {
   const [status, setStatus] = useState('Spare');
   const [assignedVehicle, setAssignedVehicle] = useState('');
   const [notes, setNotes] = useState('');
+  const [verifiedSerialNumber, setVerifiedSerialNumber] = useState('');
+  const [verifiedBy, setVerifiedBy] = useState('');
   const [currentEditId, setCurrentEditId] = useState<string | null>(null);
+  const [viewingDevice, setViewingDevice] = useState<any>(null);
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   
@@ -131,6 +134,8 @@ export default function DevicesDashboard() {
     setStatus('Spare');
     setAssignedVehicle('');
     setNotes('');
+    setVerifiedSerialNumber('');
+    setVerifiedBy('');
     setIsModalOpen(true);
   };
 
@@ -146,6 +151,8 @@ export default function DevicesDashboard() {
     setStatus(d.status);
     setAssignedVehicle(d.assignedVehicle || '');
     setNotes(d.notes || '');
+    setVerifiedSerialNumber(d.verifiedSerialNumber || '');
+    setVerifiedBy(d.verifiedBy || '');
     setIsModalOpen(true);
   };
 
@@ -167,7 +174,7 @@ export default function DevicesDashboard() {
     }
     
     setIsSubmitting(true);
-    const payload = { deviceId, type, model, imei, ownership, provider, status, assignedVehicle, notes };
+    const payload = { deviceId, type, model, imei, ownership, provider, status, assignedVehicle, notes, verifiedSerialNumber, verifiedBy };
     try {
       let res;
       if (isEditing && currentEditId) {
@@ -215,6 +222,8 @@ export default function DevicesDashboard() {
       'Device ID': d.deviceId,
       'Type': d.type,
       'IMEI': d.imei || 'N/A',
+      'Verified Serial #': d.verifiedSerialNumber || 'N/A',
+      'Verified By': d.verifiedBy || 'N/A',
       'Model': d.model || 'N/A',
       'Ownership': d.ownership || 'N/A',
       'Provider': d.provider || 'N/A',
@@ -269,6 +278,8 @@ export default function DevicesDashboard() {
                     if (t === 'ipad' || t === 'scanner') {
                       row['IMEI'] = d.imei || 'N/A';
                     }
+                    row['Verified Serial #'] = d.verifiedSerialNumber || 'N/A';
+                    row['Verified By'] = d.verifiedBy || 'N/A';
                     row['Assigned Truck'] = d.assignedVehicle ? `Truck ${d.assignedVehicle}` : 'Unassigned';
                     row['Model'] = d.model || 'N/A';
                     row['Ownership'] = d.ownership || 'N/A';
@@ -288,6 +299,8 @@ export default function DevicesDashboard() {
                   'Device ID': d.deviceId,
                   'Type': d.type,
                   'IMEI': d.imei || 'N/A',
+                  'Verified Serial #': d.verifiedSerialNumber || 'N/A',
+                  'Verified By': d.verifiedBy || 'N/A',
                   'Model': d.model || 'N/A',
                   'Ownership': d.ownership || 'N/A',
                   'Provider': d.provider || 'N/A',
@@ -394,6 +407,9 @@ export default function DevicesDashboard() {
               <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('imei')}>
                 IMEI {sortField === 'imei' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
               </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('verifiedSerialNumber')}>
+                Verified Serial # {sortField === 'verifiedSerialNumber' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
               <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('type')}>
                 Type {sortField === 'type' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
               </th>
@@ -419,14 +435,14 @@ export default function DevicesDashboard() {
           <tbody className="divide-y divide-[var(--hairline)]">
             {sortedDevices.length === 0 ? (
               <tr>
-                <td colSpan={isExportMode ? 11 : 10} className="px-4 py-8 text-center text-[var(--steel)]">
+                <td colSpan={isExportMode ? 12 : 11} className="px-4 py-8 text-center text-[var(--steel)]">
                   No devices match your search.
                 </td>
               </tr>
             ) : sortedDevices.map(d => (
-              <tr key={d._id} className="hover:bg-gray-50/50">
+              <tr key={d._id} className="hover:bg-gray-50/50 cursor-pointer" onClick={() => setViewingDevice(d)}>
                 {isExportMode && (
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" 
                            checked={selectedExportIds.includes(d._id)}
                            onChange={(e) => {
@@ -441,6 +457,13 @@ export default function DevicesDashboard() {
                     {d.deviceId}
                 </td>
                 <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">{d.imei || '-'}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                    {d.verifiedSerialNumber ? (
+                      <span className="text-[var(--ink)] font-medium">{d.verifiedSerialNumber}</span>
+                    ) : (
+                      <span className="text-gray-400 italic">Not verified</span>
+                    )}
+                </td>
                 <td className="px-4 py-3 text-[var(--steel)] capitalize whitespace-nowrap">{d.type}</td>
                 <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">{d.model || '-'}</td>
                 <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">{d.ownership || '-'}</td>
@@ -462,16 +485,16 @@ export default function DevicesDashboard() {
                     {d.notes || '-'}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <button onClick={() => openEditModal(d)} className="p-1 text-[var(--steel)] hover:text-[var(--signal)] transition-colors"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); openEditModal(d); }} className="p-1 text-[var(--steel)] hover:text-[var(--signal)] transition-colors"><Edit2 className="w-4 h-4" /></button>
                   {(user?.role === 'admin' || user?.role === 'manager') && (
-                    <button onClick={() => handleDelete(d._id)} className="p-1 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(d._id); }} className="p-1 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
                   )}
                 </td>
               </tr>
             ))}
             {devices.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-[var(--steel)]">
+                <td colSpan={11} className="px-4 py-8 text-center text-[var(--steel)]">
                   No devices added yet. Click "Add Device" to start your asset registry.
                 </td>
               </tr>
@@ -479,6 +502,65 @@ export default function DevicesDashboard() {
           </tbody>
         </table>
       </div>
+
+      <Modal isOpen={!!viewingDevice} onClose={() => setViewingDevice(null)} title="Device Details" maxWidth="max-w-lg">
+        {viewingDevice && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Device ID / Serial</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.deviceId}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Type</span>
+                <span className="text-[var(--ink)] font-medium capitalize">{viewingDevice.type}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">IMEI (as originally recorded)</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.imei || '—'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Verified Serial #</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.verifiedSerialNumber || 'Not verified yet'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Verified By</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.verifiedBy || '—'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Model</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.model || '—'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Ownership</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.ownership || '—'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Provider</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.provider || '—'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Status</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.status}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Assigned To</span>
+                <span className="text-[var(--ink)] font-medium">{viewingDevice.assignedVehicle ? `Truck ${viewingDevice.assignedVehicle}` : 'Unassigned'}</span>
+              </div>
+            </div>
+            {viewingDevice.notes && (
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Notes</span>
+                <p className="text-[var(--ink)] text-sm whitespace-pre-wrap">{viewingDevice.notes}</p>
+              </div>
+            )}
+            <div className="pt-4 border-t border-[var(--hairline)] flex justify-end gap-2">
+              <Btn variant="ghost" type="button" onClick={() => setViewingDevice(null)}>Close</Btn>
+              <Btn variant="primary" type="button" onClick={() => { const d = viewingDevice; setViewingDevice(null); openEditModal(d); }}>Edit</Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditing ? 'Edit Device' : 'Add New Device'} maxWidth="max-w-lg">
         <form onSubmit={handleSave} className="space-y-4">
@@ -538,6 +620,21 @@ export default function DevicesDashboard() {
             </div>
           )}
           
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <Input 
+              label="Verified Serial # (Optional)" 
+              value={verifiedSerialNumber} 
+              onChange={(e: any) => setVerifiedSerialNumber(e.target.value)} 
+              placeholder="Corrected value from device OS/battery compartment"
+            />
+            <Input 
+              label="Verified By (Optional)" 
+              value={verifiedBy} 
+              onChange={(e: any) => setVerifiedBy(e.target.value)} 
+              placeholder="Engineer/tech who confirmed it"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Select label="Type" options={typeOptions} value={type} onChange={(e: any) => setType(e.target.value)} required />
             <Select label="Status" options={statusOptions} value={status} onChange={(e: any) => {

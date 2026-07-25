@@ -20,6 +20,7 @@ export default function FleetRoster() {
   const [editingTruck, setEditingTruck] = useState<any>(null);
   const [barcodeTruck, setBarcodeTruck] = useState<any>(null);
   const [mmrTruck, setMmrTruck] = useState<any>(null);
+  const [viewingTruck, setViewingTruck] = useState<any>(null);
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);

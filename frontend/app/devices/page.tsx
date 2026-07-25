@@ -217,6 +217,12 @@ export default function DevicesDashboard() {
     }
   };
 
+  const handleViewDeviceEdit = () => {
+    const d = viewingDevice;
+    setViewingDevice(null);
+    openEditModal(d);
+  };
+
   const handleExport = () => {
     const dataToExport = sortedDevices.map(d => ({
       'Device ID': d.deviceId,
@@ -440,7 +446,7 @@ export default function DevicesDashboard() {
                 </td>
               </tr>
             ) : sortedDevices.map(d => (
-              <tr key={d._id} className="hover:bg-gray-50/50 cursor-pointer" onClick={() => setViewingDevice(d)}>
+              <tr key={d._id} className="hover:bg-gray-50/50 cursor-pointer" onClick={() => setViewingDevice(d)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingDevice(d); } }}>
                 {isExportMode && (
                   <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" 
@@ -556,7 +562,7 @@ export default function DevicesDashboard() {
             )}
             <div className="pt-4 border-t border-[var(--hairline)] flex justify-end gap-2">
               <Btn variant="ghost" type="button" onClick={() => setViewingDevice(null)}>Close</Btn>
-              <Btn variant="primary" type="button" onClick={() => { const d = viewingDevice; setViewingDevice(null); openEditModal(d); }}>Edit</Btn>
+              <Btn variant="primary" type="button" onClick={handleViewDeviceEdit}>Edit</Btn>
             </div>
           </div>
         )}
@@ -622,7 +628,7 @@ export default function DevicesDashboard() {
           
           <div className="grid grid-cols-2 gap-4 mb-4">
             <Input 
-              label="Verified Serial # (Optional)" 
+              label="Verified Serial Number (Optional)" 
               value={verifiedSerialNumber} 
               onChange={(e: any) => setVerifiedSerialNumber(e.target.value)} 
               placeholder="Corrected value from device OS/battery compartment"

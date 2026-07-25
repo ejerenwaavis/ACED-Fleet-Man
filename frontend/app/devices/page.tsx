@@ -5,7 +5,7 @@ import { PageHeader, Btn, Modal, Input, Select } from '@/components/fleet/UI';
 import { apiFetch } from '@/lib/api';
 import { exportToCsv } from '@/lib/exportCsv';
 import { exportToPdf, exportGroupedToPdf } from '@/lib/exportPdf';
-import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode, Search, FileText } from 'lucide-react';
+import { TabletSmartphone, Plus, Edit2, Trash2, AlertCircle, Download, ScanBarcode, Search, FileText, ArrowUp, ArrowDown } from 'lucide-react';
 import { useAuth } from '@/components/fleet/AuthProvider';
 import { BarcodeScanner } from '@/components/fleet/BarcodeScanner';
 import { OcrScanner } from '@/components/fleet/OcrScanner';
@@ -25,17 +25,23 @@ export default function DevicesDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Form State
   const [deviceId, setDeviceId] = useState('');
   const [type, setType] = useState('scanner');
   const [model, setModel] = useState('');
   const [imei, setImei] = useState('');
+  const [ownership, setOwnership] = useState('');
+  const [provider, setProvider] = useState('');
   const [status, setStatus] = useState('Spare');
   const [assignedVehicle, setAssignedVehicle] = useState('');
   const [notes, setNotes] = useState('');
   const [currentEditId, setCurrentEditId] = useState<string | null>(null);
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
+  
+  const [sortField, setSortField] = useState('deviceId');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filterOwnership, setFilterOwnership] = useState('All');
+  const [filterProvider, setFilterProvider] = useState('All');
 
   const fetchDevices = async () => {
     try {
@@ -71,6 +77,8 @@ export default function DevicesDashboard() {
 
   const filteredDevices = devices.filter(d => {
     if (activeTab !== 'All' && d.type?.toLowerCase() !== activeTab.toLowerCase()) return false;
+    if (filterOwnership !== 'All' && (d.ownership || 'None') !== filterOwnership) return false;
+    if (filterProvider !== 'All' && (d.provider || 'None') !== filterProvider) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -78,9 +86,38 @@ export default function DevicesDashboard() {
       (d.type?.toLowerCase() || '').includes(q) ||
       (d.model?.toLowerCase() || '').includes(q) ||
       (d.status?.toLowerCase() || '').includes(q) ||
-      (d.assignedVehicle?.toLowerCase() || '').includes(q)
+      (d.assignedVehicle?.toLowerCase() || '').includes(q) ||
+      (d.imei?.toLowerCase() || '').includes(q) ||
+      (d.ownership?.toLowerCase() || '').includes(q) ||
+      (d.provider?.toLowerCase() || '').includes(q) ||
+      (d.notes?.toLowerCase() || '').includes(q)
     );
   });
+
+  const sortedDevices = [...filteredDevices].sort((a, b) => {
+    let aVal = a[sortField];
+    let bVal = b[sortField];
+    if (sortField === 'assignedVehicle') {
+      aVal = aVal ? Number(aVal) : Infinity;
+      bVal = bVal ? Number(bVal) : Infinity;
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    }
+    aVal = String(aVal || '').toLowerCase();
+    bVal = String(bVal || '').toLowerCase();
+    if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const uniqueOwners = Array.from(new Set(devices.map(d => d.ownership || 'None'))).sort();
+  const uniqueProviders = Array.from(new Set(devices.map(d => d.provider || 'None'))).sort();
+
+  const handleSort = (field: string) => {
+    if (sortField === field) setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDirection('asc'); }
+  };
 
   const openAddModal = () => {
     setIsEditing(false);
@@ -89,6 +126,8 @@ export default function DevicesDashboard() {
     setType('scanner');
     setModel('');
     setImei('');
+    setOwnership('');
+    setProvider('');
     setStatus('Spare');
     setAssignedVehicle('');
     setNotes('');
@@ -102,6 +141,8 @@ export default function DevicesDashboard() {
     setType(d.type);
     setModel(d.model || '');
     setImei(d.imei || '');
+    setOwnership(d.ownership || '');
+    setProvider(d.provider || '');
     setStatus(d.status);
     setAssignedVehicle(d.assignedVehicle || '');
     setNotes(d.notes || '');
@@ -126,7 +167,7 @@ export default function DevicesDashboard() {
     }
     
     setIsSubmitting(true);
-    const payload = { deviceId, type, model, imei, status, assignedVehicle, notes };
+    const payload = { deviceId, type, model, imei, ownership, provider, status, assignedVehicle, notes };
     try {
       let res;
       if (isEditing && currentEditId) {
@@ -170,11 +211,13 @@ export default function DevicesDashboard() {
   };
 
   const handleExport = () => {
-    const dataToExport = devices.map(d => ({
+    const dataToExport = sortedDevices.map(d => ({
       'Device ID': d.deviceId,
       'Type': d.type,
       'IMEI': d.imei || 'N/A',
       'Model': d.model || 'N/A',
+      'Ownership': d.ownership || 'N/A',
+      'Provider': d.provider || 'N/A',
       'Status': d.status,
       'Assigned Vehicle': d.assignedVehicle || 'Unassigned',
       'Notes': d.notes || '',
@@ -228,6 +271,8 @@ export default function DevicesDashboard() {
                     }
                     row['Assigned Truck'] = d.assignedVehicle ? `Truck ${d.assignedVehicle}` : 'Unassigned';
                     row['Model'] = d.model || 'N/A';
+                    row['Ownership'] = d.ownership || 'N/A';
+                    row['Provider'] = d.provider || 'N/A';
                     row['Status'] = d.status;
                     return row;
                   });
@@ -244,6 +289,8 @@ export default function DevicesDashboard() {
                   'Type': d.type,
                   'IMEI': d.imei || 'N/A',
                   'Model': d.model || 'N/A',
+                  'Ownership': d.ownership || 'N/A',
+                  'Provider': d.provider || 'N/A',
                   'Status': d.status,
                   'Assigned Vehicle': d.assignedVehicle || 'Unassigned',
                   'Notes': d.notes || '',
@@ -282,16 +329,34 @@ export default function DevicesDashboard() {
         </div>
       </div>
 
-      <div className="flex items-center mb-4">
-        <div className="relative w-full max-w-md">
+      <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+        <div className="relative w-full md:flex-1">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--steel-light)]" />
           <input 
             type="text" 
-            placeholder="Search devices by ID, type, model, assignment..." 
+            placeholder="Search devices by ID, type, model, assignment, IMEI..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-[var(--hairline)] rounded-xl bg-white focus:outline-none focus:border-[var(--signal)] focus:ring-1 focus:ring-[var(--signal)] text-sm"
           />
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <select
+            value={filterOwnership}
+            onChange={(e) => setFilterOwnership(e.target.value)}
+            className="px-3 py-2 border border-[var(--hairline)] rounded-xl bg-white focus:outline-none focus:border-[var(--signal)] text-sm text-[var(--ink)]"
+          >
+            <option value="All">All Owners</option>
+            {uniqueOwners.map(o => <option key={o} value={o}>{o === 'None' ? 'No Owner' : o}</option>)}
+          </select>
+          <select
+            value={filterProvider}
+            onChange={(e) => setFilterProvider(e.target.value)}
+            className="px-3 py-2 border border-[var(--hairline)] rounded-xl bg-white focus:outline-none focus:border-[var(--signal)] text-sm text-[var(--ink)]"
+          >
+            <option value="All">All Providers</option>
+            {uniqueProviders.map(p => <option key={p} value={p}>{p === 'None' ? 'No Provider' : p}</option>)}
+          </select>
         </div>
       </div>
       
@@ -323,22 +388,42 @@ export default function DevicesDashboard() {
                          className="rounded border-[var(--hairline)]" />
                 </th>
               )}
-              <th className="px-4 py-3 font-semibold text-[var(--steel-light)]">Device ID</th>
-              <th className="px-4 py-3 font-semibold text-[var(--steel-light)]">Type</th>
-              <th className="px-4 py-3 font-semibold text-[var(--steel-light)]">Model</th>
-              <th className="px-4 py-3 font-semibold text-[var(--steel-light)]">Status</th>
-              <th className="px-4 py-3 font-semibold text-[var(--steel-light)]">Assignment</th>
-              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] text-right">Actions</th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('deviceId')}>
+                Device ID {sortField === 'deviceId' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('imei')}>
+                IMEI {sortField === 'imei' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('type')}>
+                Type {sortField === 'type' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('model')}>
+                Model {sortField === 'model' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('ownership')}>
+                Ownership {sortField === 'ownership' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('provider')}>
+                Provider {sortField === 'provider' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('status')}>
+                Status {sortField === 'status' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] cursor-pointer hover:text-[var(--ink)] whitespace-nowrap" onClick={() => handleSort('assignedVehicle')}>
+                Assignment {sortField === 'assignedVehicle' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />)}
+              </th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] whitespace-nowrap">Notes</th>
+              <th className="px-4 py-3 font-semibold text-[var(--steel-light)] text-right whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--hairline)]">
-            {filteredDevices.length === 0 ? (
+            {sortedDevices.length === 0 ? (
               <tr>
-                <td colSpan={isExportMode ? 7 : 6} className="px-4 py-8 text-center text-[var(--steel)]">
+                <td colSpan={isExportMode ? 11 : 10} className="px-4 py-8 text-center text-[var(--steel)]">
                   No devices match your search.
                 </td>
               </tr>
-            ) : filteredDevices.map(d => (
+            ) : sortedDevices.map(d => (
               <tr key={d._id} className="hover:bg-gray-50/50">
                 {isExportMode && (
                   <td className="px-4 py-3 text-center">
@@ -351,13 +436,16 @@ export default function DevicesDashboard() {
                            className="rounded border-[var(--hairline)]" />
                   </td>
                 )}
-                <td className="px-4 py-3 font-medium text-[var(--ink)] flex items-center gap-2">
+                <td className="px-4 py-3 font-medium text-[var(--ink)] flex items-center gap-2 whitespace-nowrap">
                     <TabletSmartphone className="w-4 h-4 text-[var(--steel)]" />
                     {d.deviceId}
                 </td>
-                <td className="px-4 py-3 text-[var(--steel)] capitalize">{d.type}</td>
-                <td className="px-4 py-3 text-[var(--steel)]">{d.model || '-'}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">{d.imei || '-'}</td>
+                <td className="px-4 py-3 text-[var(--steel)] capitalize whitespace-nowrap">{d.type}</td>
+                <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">{d.model || '-'}</td>
+                <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">{d.ownership || '-'}</td>
+                <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">{d.provider || '-'}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${
                         d.status === 'Assigned' ? 'bg-[var(--signal-dim)] text-[var(--signal)]' :
                         d.status === 'Faulty' ? 'bg-[var(--red-bg)] text-[var(--red)]' :
@@ -367,10 +455,13 @@ export default function DevicesDashboard() {
                         {d.status}
                     </span>
                 </td>
-                <td className="px-4 py-3 text-[var(--steel)]">
+                <td className="px-4 py-3 text-[var(--steel)] whitespace-nowrap">
                     {d.assignedVehicle ? `Truck ${d.assignedVehicle}` : <span className="text-gray-400 italic">Unassigned</span>}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-[var(--steel)] max-w-[200px] truncate" title={d.notes || ''}>
+                    {d.notes || '-'}
+                </td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">
                   <button onClick={() => openEditModal(d)} className="p-1 text-[var(--steel)] hover:text-[var(--signal)] transition-colors"><Edit2 className="w-4 h-4" /></button>
                   {(user?.role === 'admin' || user?.role === 'manager') && (
                     <button onClick={() => handleDelete(d._id)} className="p-1 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
@@ -380,7 +471,7 @@ export default function DevicesDashboard() {
             ))}
             {devices.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--steel)]">
+                <td colSpan={10} className="px-4 py-8 text-center text-[var(--steel)]">
                   No devices added yet. Click "Add Device" to start your asset registry.
                 </td>
               </tr>
@@ -413,6 +504,11 @@ export default function DevicesDashboard() {
               </div>
             </div>
             <Input label="Model (Optional)" value={model} onChange={(e: any) => setModel(e.target.value)} />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Ownership (Optional)" value={ownership} onChange={(e: any) => setOwnership(e.target.value)} placeholder="e.g. Discounter" />
+            <Input label="Provider (Optional)" value={provider} onChange={(e: any) => setProvider(e.target.value)} placeholder="e.g. Velocito" />
           </div>
           
           {(type === 'ipad' || type === 'scanner') && (

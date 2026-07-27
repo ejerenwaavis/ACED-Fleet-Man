@@ -343,7 +343,7 @@ export default function FleetRoster() {
       <Select label="Status" name="status" defaultValue={defaultValues?.status || 'Active'} options={[
         { label: 'Active', value: 'Active' },
         { label: 'In shop', value: 'In shop' },
-        { label: 'Down', value: 'Down' }
+        { label: 'Inactive', value: 'Inactive' }
       ]} />
       
       <Input label="Last Known Mileage" name="lastKnownMileage" type="number" defaultValue={defaultValues?.lastKnownMileage} />
@@ -445,7 +445,7 @@ export default function FleetRoster() {
               <option value="all">All Statuses</option>
               <option value="Active">Active</option>
               <option value="In shop">In shop</option>
-              <option value="Down">Down</option>
+              <option value="Inactive">Inactive</option>
             </select>
           </div>
           {filterStatus !== 'all' && (

@@ -17,7 +17,7 @@ export function StatusPill({ status }: { status: string }) {
   const map: Record<string, { bg: string; fg: string }> = {
     Active: { bg: "var(--green-bg)", fg: "var(--green)" },
     "In shop": { bg: "var(--amber-bg)", fg: "var(--amber)" },
-    Down: { bg: "var(--red-bg)", fg: "var(--red)" },
+    Inactive: { bg: "var(--red-bg)", fg: "var(--red)" },
   };
   const s = map[status] || map.Active;
   return (

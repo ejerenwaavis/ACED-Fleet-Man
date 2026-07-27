@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Truck, Wrench, AlertTriangle, CheckCircle2, Settings, MapPin, ExternalLink, Image as ImageIcon } from "lucide-react";
-import { PageHeader, Btn, JobStatusPill, Modal, Select } from "@/components/fleet/UI";
+import { PageHeader, Btn, JobStatusPill, Modal, Select, Input } from "@/components/fleet/UI";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/components/fleet/AuthProvider";
 
 export default function MechanicDashboard() {
+  const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -18,6 +20,13 @@ export default function MechanicDashboard() {
   const [laborRate, setLaborRate] = useState("");
   const [mechanicPhotos, setMechanicPhotos] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Mechanic Initiate Job
+  const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
+  const [initTitle, setInitTitle] = useState("");
+  const [initDesc, setInitDesc] = useState("");
+  const [initPhotos, setInitPhotos] = useState<File[]>([]);
+  const [isInitiating, setIsInitiating] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -75,11 +84,44 @@ export default function MechanicDashboard() {
     }
   };
 
+  const handleInitiateJob = async (e: any) => {
+    e.preventDefault();
+    if (isInitiating || !selectedJob || !initTitle || !initDesc) return;
+    setIsInitiating(true);
+    try {
+      const formData = new FormData();
+      formData.append("title", initTitle);
+      formData.append("description", initDesc);
+      formData.append("vehicleId", selectedJob.vehicleId?._id || selectedJob.vehicleId); // Depending on populate
+      formData.append("parentRequestId", selectedJob._id);
+      
+      initPhotos.forEach((file) => {
+        formData.append("mechanicAttachments", file);
+      });
+
+      const res = await apiFetch(`/api/msp/jobs/initiate`, {
+        method: "POST",
+        body: formData
+      });
+      if (res.ok) {
+        setIsInitiateModalOpen(false);
+        setInitTitle("");
+        setInitDesc("");
+        setInitPhotos([]);
+        fetchJobs();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsInitiating(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-[var(--steel)]">Loading jobs...</div>;
 
-  const newRequests = jobs.filter((j: any) => ['pending', 'assigned'].includes(j.status));
-  const inProgress = jobs.filter((j: any) => ['accepted', 'in-progress', 'awaiting-parts'].includes(j.status));
-  const completed = jobs.filter((j: any) => ['completed', 'invoiced', 'closed'].includes(j.status));
+  const availableJobs = jobs.filter((j: any) => ['pending', 'assigned'].includes(j.status) && (!j.assignedMechanicId || j.assignedMechanicId?._id !== user?._id));
+  const myActiveJobs = jobs.filter((j: any) => ['accepted', 'in-progress', 'awaiting-parts'].includes(j.status) && j.assignedMechanicId?._id === user?._id);
+  const completed = jobs.filter((j: any) => ['completed', 'invoiced', 'closed'].includes(j.status) && j.assignedMechanicId?._id === user?._id);
 
   const Column = ({ title, items, icon: Icon, color }: any) => (
     <div className="flex-1 min-w-[300px] bg-[var(--surface)] border border-[var(--hairline)] rounded-xl flex flex-col h-full max-h-[calc(100vh-200px)]">
@@ -139,9 +181,9 @@ export default function MechanicDashboard() {
       />
 
       <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-        <Column title="New Requests" items={newRequests} icon={AlertTriangle} color="var(--amber)" />
-        <Column title="In Progress" items={inProgress} icon={Wrench} color="var(--signal)" />
-        <Column title="Completed" items={completed} icon={CheckCircle2} color="var(--green)" />
+        <Column title="Available Jobs" items={availableJobs} icon={AlertTriangle} color="var(--amber)" />
+        <Column title="My Active Jobs" items={myActiveJobs} icon={Wrench} color="var(--signal)" />
+        <Column title="My Completed" items={completed} icon={CheckCircle2} color="var(--green)" />
       </div>
 
       <Modal isOpen={isUpdateModalOpen} onClose={() => setIsUpdateModalOpen(false)} title="Update Job Status">
@@ -255,15 +297,62 @@ export default function MechanicDashboard() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Btn type="button" variant="ghost" onClick={() => setIsUpdateModalOpen(false)}>Cancel</Btn>
-              <Btn type="submit" variant="primary" disabled={isSubmitting}>
-                {isSubmitting ? 'Processing...' : 'Save Changes'}
+            <div className="flex justify-between items-center pt-4 border-t border-[var(--hairline)]">
+              <Btn variant="ghost" onClick={() => {
+                setIsUpdateModalOpen(false);
+                setIsInitiateModalOpen(true);
+              }}>
+                + Sub-Job / Parts Request
+              </Btn>
+              <Btn variant="primary" type="submit" isLoading={isSubmitting}>
+                Save Updates
               </Btn>
             </div>
           </form>
         )}
       </Modal>
+
+      <Modal isOpen={isInitiateModalOpen} onClose={() => setIsInitiateModalOpen(false)} title="Initiate Sub-Job / Parts Request">
+        <form onSubmit={handleInitiateJob} className="space-y-4">
+          <div className="mb-4">
+            <p className="text-sm text-[var(--steel)]">
+              This will create a new request linked to <strong>{selectedJob?.title}</strong>. Depending on fleet settings, it may require approval.
+            </p>
+          </div>
+          <Input 
+            label="Request Title" 
+            value={initTitle} 
+            onChange={(e: any) => setInitTitle(e.target.value)} 
+            placeholder="e.g. Needs new brake pads"
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium text-[var(--ink)] mb-1.5">Detailed Description</label>
+            <textarea 
+              className="w-full px-3 py-2 border border-[var(--hairline)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--signal)] text-sm bg-white"
+              rows={4}
+              value={initDesc}
+              onChange={(e) => setInitDesc(e.target.value)}
+              placeholder="Why is this needed? Include part numbers if known."
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--ink)] mb-1.5">Supporting Photos</label>
+            <input 
+              type="file" 
+              multiple 
+              accept="image/*"
+              onChange={(e) => setInitPhotos(Array.from(e.target.files || []))}
+              className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[var(--signal)] file:text-white hover:file:bg-[var(--signal-dark)] border border-[var(--hairline)] rounded-lg"
+            />
+          </div>
+          <div className="flex justify-end pt-4 border-t border-[var(--hairline)] mt-6">
+            <Btn variant="primary" type="submit" isLoading={isInitiating}>Submit Request</Btn>
+          </div>
+        </form>
+      </Modal>
+
     </div>
   );
 }

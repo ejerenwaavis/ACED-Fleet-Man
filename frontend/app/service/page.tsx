@@ -59,7 +59,8 @@ export default function ServicePage() {
     ? requests.filter(r => r.createdAt && r.createdAt.startsWith(selectedMonth))
     : requests;
 
-  const newRequests = filteredRequests.filter(r => ['pending', 'assigned'].includes(r.status));
+  const newRequests = filteredRequests.filter(r => ['pending', 'assigned'].includes(r.status) && r.approvalStatus !== 'pending_admin_approval');
+  const pendingApprovals = filteredRequests.filter(r => r.approvalStatus === 'pending_admin_approval');
   const inProgress = filteredRequests.filter(r => ['accepted', 'in-progress', 'awaiting-parts'].includes(r.status));
   const completed = filteredRequests.filter(r => ['completed', 'invoiced', 'closed'].includes(r.status));
 
@@ -98,12 +99,26 @@ export default function ServicePage() {
         setCancelError(`Failed to cancel request: ${errorData.error || 'Unknown error'}`);
       }
     } catch (err: any) {
-      console.error(err);
-      setCancelError(`Error cancelling request: ${err.message}`);
+      setCancelError(`An error occurred: ${err.message}`);
     } finally {
       setIsCancelling(false);
     }
   };
+
+  const approveRequest = async (e: any) => {
+    e.stopPropagation();
+    if (!selectedJob) return;
+    try {
+      const res = await apiFetch(`/api/maintenance/${selectedJob._id}/approve`, { method: 'POST' });
+      if (res.ok) {
+        setIsDetailsModalOpen(false);
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
 
   const Column = ({ title, items, icon: Icon, color }: any) => (
     <div className="flex-1 min-w-[85vw] md:min-w-[300px] snap-center bg-[var(--surface)] border border-[var(--hairline)] rounded-xl flex flex-col h-full max-h-[calc(100vh-200px)] shrink-0">
@@ -138,7 +153,13 @@ export default function ServicePage() {
                 )}
               </div>
             </div>
-            <h4 className="font-bold text-[var(--ink)] mb-1">{job.title}</h4>
+            </div>
+            <div className="flex items-center justify-between mb-1">
+              <h4 className="font-bold text-[var(--ink)]">{job.title}</h4>
+              {job.visibility === 'internal' && (
+                <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ml-2">Internal Only</span>
+              )}
+            </div>
             <p className="text-sm text-[var(--steel)] mb-3 line-clamp-2">{job.description}</p>
             
             <div className="flex items-center justify-between pt-3 border-t border-[var(--hairline)]">
@@ -216,6 +237,7 @@ export default function ServicePage() {
         <div className="p-8 text-center text-[var(--steel)]">Loading requests...</div>
       ) : (
         <div className="flex-1 flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory">
+          <Column title="Pending Approvals" items={pendingApprovals} icon={AlertTriangle} color="var(--purple)" />
           <Column title="Pending / Unassigned" items={newRequests} icon={AlertTriangle} color="var(--amber)" />
           <Column title="In Progress" items={inProgress} icon={Wrench} color="var(--signal)" />
           <Column title="Completed" items={completed} icon={CheckCircle2} color="var(--green)" />
@@ -290,6 +312,13 @@ export default function ServicePage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+            )}
+            
+            {selectedJob.approvalStatus === 'pending_admin_approval' && (
+              <div className="pt-4 border-t border-[var(--hairline)] flex justify-end">
+                <Btn variant="primary" onClick={approveRequest}>Approve Mechanic Request</Btn>
               </div>
             )}
           </div>

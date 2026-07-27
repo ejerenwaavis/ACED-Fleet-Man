@@ -38,7 +38,13 @@ const maintenanceRequestSchema = new mongoose.Schema({
     laborHours: { type: Number },
     laborRate: { type: Number },
     mechanicNotes: { type: String },
-    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' }
+    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
+    
+    // New Mechanic Privacy & Workflow Fields
+    visibility: { type: String, enum: ['internal', 'public'], default: 'public' },
+    initiatedByMechanic: { type: Boolean, default: false },
+    approvalStatus: { type: String, enum: ['pending_admin_approval', 'approved', 'auto_approved'], default: 'approved' },
+    parentRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'MaintenanceRequest' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('MaintenanceRequest', maintenanceRequestSchema);

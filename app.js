@@ -574,7 +574,10 @@ app.patch('/api/partnerships/:id', isAuthenticated, async (req, res) => {
 // --- MSP Jobs APIs ---
 app.get('/api/msp/jobs', isAuthenticated, isManagerOrAdmin, async (req, res) => {
     try {
-        const jobs = await MaintenanceRequest.find({ assignedMspEntityId: req.user.entityId })
+        const jobs = await MaintenanceRequest.find({ 
+            assignedMspEntityId: req.user.entityId,
+            visibility: { $ne: 'internal' }
+        })
             .populate('entityId', 'name contactEmail contactPhone') // The DSP
             .populate('assignedMechanicId', 'name')
             .sort('-createdAt');
@@ -636,6 +639,63 @@ app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, uploadT
         });
 
         res.json({ success: true, job });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/msp/jobs/initiate', isAuthenticated, uploadTemp.array('mechanicAttachments', 5), async (req, res) => {
+    try {
+        const { vehicleId, title, description, parentRequestId } = req.body;
+        
+        // Find vehicle to get fleet entityId
+        const vehicle = await Vehicle.findById(vehicleId);
+        if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+        
+        const dspEntityId = vehicle.entityId;
+        const mspEntityId = req.user.entityId;
+        
+        // Find partnership
+        const Partnership = require('./models/Partnership');
+        const partnership = await Partnership.findOne({ dspEntityId, mspEntityId, status: 'active' });
+        if (!partnership) return res.status(403).json({ error: 'No active partnership with this fleet' });
+
+        const isAutoApprove = partnership.autoApproveMechanicJobs === true;
+        
+        // Upload attachments
+        let photoUrls = [];
+        if (req.files && Array.isArray(req.files)) {
+            for (const file of req.files) {
+                try {
+                    const result = await cloudinary.uploader.upload(file.path, { folder: 'fleetMan' });
+                    photoUrls.push(result.secure_url);
+                } catch (uploadErr) {
+                    console.error("Cloudinary upload failed:", uploadErr);
+                } finally {
+                    const fs = require('fs');
+                    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+                }
+            }
+        }
+
+        const newRequest = new MaintenanceRequest({
+            entityId: dspEntityId,
+            title,
+            description,
+            requestType: 'Vehicle Issue',
+            vehicleId,
+            reportedBy: req.user._id,
+            status: isAutoApprove ? 'in-progress' : 'pending',
+            assignedMspEntityId: mspEntityId,
+            assignedMechanicId: req.user._id,
+            mechanicAttachments: photoUrls,
+            initiatedByMechanic: true,
+            approvalStatus: isAutoApprove ? 'auto_approved' : 'pending_admin_approval',
+            parentRequestId: parentRequestId || undefined
+        });
+
+        await newRequest.save();
+        res.json({ success: true, request: newRequest });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1205,6 +1265,35 @@ app.get('/api/dsp/active-msps', isAuthenticated, async (req, res) => {
     }
 });
 
+app.post('/api/maintenance/:id/approve', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const reqId = req.params.id;
+        const maintenanceReq = await MaintenanceRequest.findOne({ _id: reqId, entityId: req.user.entityId });
+        if (!maintenanceReq) return res.status(404).json({ error: 'Request not found' });
+        
+        if (maintenanceReq.approvalStatus !== 'pending_admin_approval') {
+            return res.status(400).json({ error: 'Request is not pending approval' });
+        }
+
+        maintenanceReq.approvalStatus = 'approved';
+        maintenanceReq.status = 'in-progress';
+        await maintenanceReq.save();
+        
+        // Log the activity
+        const ActivityLog = require('./models/ActivityLog');
+        await ActivityLog.create({
+            jobId: maintenanceReq._id,
+            actorId: req.user._id,
+            actorEntityId: req.user.entityId,
+            action: 'approval_granted'
+        });
+
+        res.json({ success: true, request: maintenanceReq });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/maintenance/:id/cancel', isAuthenticated, async (req, res) => {
     try {
         const reqId = req.params.id;
@@ -1500,6 +1589,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
                         requestType: 'Vehicle Issue',
                         vehicleId,
                         reportedBy: req.user?._id,
+                        visibility: 'internal',
                         status: 'pending',
                         priority: 'medium'
                     });
@@ -1606,7 +1696,8 @@ app.post('/api/walkthrough-records/submit-all', async (req, res) => {
                         vehicleId: record.vehicleId,
                         reportedBy: req.user?._id,
                         status: 'pending',
-                        priority: 'medium'
+                        priority: 'medium',
+                        visibility: 'internal'
                     });
                     await newRequest.save();
                 }

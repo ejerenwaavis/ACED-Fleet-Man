@@ -12,7 +12,8 @@ const partnershipSchema = new mongoose.Schema({
     respondedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     respondedAt: { type: Date },
     terms: { type: String },
-    defaultAutoAssign: { type: Boolean, default: true }
+    defaultAutoAssign: { type: Boolean, default: true },
+    autoApproveMechanicJobs: { type: Boolean, default: false } // For trusted mechanic workflows
 }, { timestamps: true });
 
 partnershipSchema.index({ dspEntityId: 1, mspEntityId: 1 }, { unique: true });

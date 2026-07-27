@@ -55,6 +55,19 @@ export default function PartnershipsPage() {
     }
   };
 
+  const handleToggleAutoApprove = async (id: string, currentVal: boolean) => {
+    try {
+      const res = await apiFetch(`/api/partnerships/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoApproveMechanicJobs: !currentVal })
+      });
+      if (res.ok) fetchPartnerships();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-[var(--steel)]">Loading partnerships...</div>;
 
   return (
@@ -139,6 +152,21 @@ export default function PartnershipsPage() {
                       <span className="text-[10px] opacity-80">Route new jobs here by default</span>
                     </div>
                     {p.defaultAutoAssign ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                  </button>
+                )}
+
+                {p.status === 'active' && isDsp && (
+                  <button 
+                    onClick={() => handleToggleAutoApprove(p._id, p.autoApproveMechanicJobs)}
+                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                      p.autoApproveMechanicJobs ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-white border-[var(--hairline)] text-[var(--steel)] hover:border-[var(--steel)]'
+                    }`}
+                  >
+                    <div className="flex flex-col items-start text-left">
+                      <span className="font-semibold text-sm">Auto-Approve Jobs</span>
+                      <span className="text-[10px] opacity-80">Trust mechanic to initiate jobs</span>
+                    </div>
+                    {p.autoApproveMechanicJobs ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                   </button>
                 )}
                 

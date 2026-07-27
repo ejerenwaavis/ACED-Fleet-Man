@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Plus, Trash2, Edit2, Users, Check, X as XIcon, Shield } from "lucide-react";
+import { Settings as SettingsIcon, Plus, Trash2, Edit2, Users, Check, X as XIcon, Shield, Download, Database } from "lucide-react";
 import { PageHeader, Btn, Modal, Input, Select } from "@/components/fleet/UI";
 import { useAuth } from "@/components/fleet/AuthProvider";
 import { getApiBase, apiFetch } from "@/lib/api";
@@ -18,6 +18,9 @@ export default function Settings() {
   const [invitePhone, setInvitePhone] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState<any>(null);
+
+  // Export State
+  const [exportLoading, setExportLoading] = useState(false);
 
   const fetchRequests = () => {
     apiFetch(`/api/onboarding/requests`)
@@ -92,6 +95,27 @@ export default function Settings() {
       alert(err.message);
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleExportBulk = async () => {
+    setExportLoading(true);
+    try {
+      const res = await apiFetch(`/api/export/bulk-backup`);
+      if (!res.ok) throw new Error('Failed to generate export');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aced_fleet_backup_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -260,6 +284,28 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      {(user?.role === 'admin' || user?.role === 'manager') && (
+        <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">
+          <div className="p-5 border-b border-[var(--hairline)]">
+            <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
+              <Database className="w-5 h-5 text-[var(--brand)]" /> Data Export & Backups
+            </h3>
+            <p className="text-sm text-[var(--steel-light)] mt-1">
+              Download a comprehensive backup of all your fleet data. This includes Vehicles, Devices, Maintenance Records, Walkthroughs, and Users.
+            </p>
+          </div>
+          <div className="p-5 flex items-center justify-between bg-gray-50/50">
+            <div>
+              <div className="font-semibold text-[var(--ink)]">Full System Backup</div>
+              <div className="text-xs text-[var(--steel)] mt-0.5">Generates a ZIP file containing multiple CSVs</div>
+            </div>
+            <Btn variant="primary" icon={Download} onClick={handleExportBulk} disabled={exportLoading}>
+              {exportLoading ? 'Packaging Data...' : 'Export All Data (ZIP)'}
+            </Btn>
+          </div>
+        </div>
+      )}
 
     </div>
   );

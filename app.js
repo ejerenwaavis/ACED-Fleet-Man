@@ -1868,6 +1868,84 @@ app.delete('/api/checklist-items/:id', async (req, res) => {
     }
 });
 
+app.get('/api/export/bulk-backup', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const entityId = req.user.entityId;
+
+        // Fetch data
+        const vehicles = await Vehicle.find({ entityId }).lean();
+        const devices = await Device.find({ entityId }).lean();
+        const walkthroughs = await WalkthroughRecord.find({ entityId })
+            .populate('vehicleId', 'truckNumber')
+            .populate('reporterId', 'displayName email')
+            .lean();
+        const maintenance = await MaintenanceRequest.find({ entityId })
+            .populate('reportedBy', 'displayName email')
+            .lean();
+        const users = await User.find({ entityId }).lean();
+
+        // Helper to convert array of objects to CSV
+        const toCsv = (data) => {
+            if (!data || !data.length) return '';
+            
+            // Get all unique keys
+            const keys = Array.from(new Set(data.flatMap(obj => Object.keys(obj))));
+            
+            const escapeCsv = (val) => {
+                if (val === null || val === undefined) return '';
+                if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
+                const str = String(val);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            const header = keys.map(escapeCsv).join(',');
+            const rows = data.map(row => keys.map(k => escapeCsv(row[k])).join(','));
+            return [header, ...rows].join('\n');
+        };
+
+        const archive = new ZipArchive({ zlib: { level: 9 } });
+
+        res.attachment(`aced_fleet_backup_${new Date().toISOString().split('T')[0]}.zip`);
+        
+        archive.on('error', (err) => {
+            console.error('Archive error:', err);
+            res.status(500).end();
+        });
+
+        archive.pipe(res);
+
+        archive.append(toCsv(vehicles), { name: 'vehicles.csv' });
+        archive.append(toCsv(devices), { name: 'devices.csv' });
+        
+        // Flatten nested populate fields before CSV
+        const flatWalkthroughs = walkthroughs.map(w => ({
+            ...w,
+            vehicleId: w.vehicleId?.truckNumber || w.vehicleId,
+            reporterId: w.reporterId?.displayName || w.reporterId?.email || w.reporterId
+        }));
+        archive.append(toCsv(flatWalkthroughs), { name: 'walkthroughs.csv' });
+        
+        const flatMaintenance = maintenance.map(m => ({
+            ...m,
+            reportedBy: m.reportedBy?.displayName || m.reportedBy?.email || m.reportedBy
+        }));
+        archive.append(toCsv(flatMaintenance), { name: 'maintenance.csv' });
+        
+        archive.append(toCsv(users), { name: 'users.csv' });
+
+        await archive.finalize();
+
+    } catch (err) {
+        console.error('Bulk Export Error:', err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to generate export archive' });
+        }
+    }
+});
+
 app.get('/api/dashboard-data', async (req, res) => {
     try {
         const tasks = await Task.find({ entityId: req.user?.entityId }).sort('-createdAt').limit(20);

@@ -40,6 +40,29 @@ export default function DevicesDashboard() {
   const [viewingDevice, setViewingDevice] = useState<any>(null);
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+  const handleSelect = (id: string, checked: boolean, shiftKey: boolean, list: any[]) => {
+    if (shiftKey && lastSelectedId) {
+      const currentIndex = list.findIndex(item => item._id === id);
+      const lastIndex = list.findIndex(item => item._id === lastSelectedId);
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const start = Math.min(currentIndex, lastIndex);
+        const end = Math.max(currentIndex, lastIndex);
+        const idsInRange = list.slice(start, end + 1).map(item => item._id);
+        
+        if (checked) {
+          setSelectedExportIds(prev => Array.from(new Set([...prev, ...idsInRange])));
+        } else {
+          setSelectedExportIds(prev => prev.filter(pId => !idsInRange.includes(pId)));
+        }
+      }
+    } else {
+      if (checked) setSelectedExportIds(prev => [...prev, id]);
+      else setSelectedExportIds(prev => prev.filter(pId => pId !== id));
+    }
+    setLastSelectedId(id);
+  };
   
   const [sortField, setSortField] = useState('deviceId');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -451,10 +474,7 @@ export default function DevicesDashboard() {
                   <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" 
                            checked={selectedExportIds.includes(d._id)}
-                           onChange={(e) => {
-                             if (e.target.checked) setSelectedExportIds([...selectedExportIds, d._id]);
-                             else setSelectedExportIds(selectedExportIds.filter(id => id !== d._id));
-                           }}
+                           onChange={(e: any) => handleSelect(d._id, e.target.checked, e.nativeEvent.shiftKey, sortedDevices)}
                            className="rounded border-[var(--hairline)]" />
                   </td>
                 )}
@@ -491,10 +511,7 @@ export default function DevicesDashboard() {
                     {d.notes || '-'}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <button onClick={(e) => { e.stopPropagation(); openEditModal(d); }} className="p-1 text-[var(--steel)] hover:text-[var(--signal)] transition-colors"><Edit2 className="w-4 h-4" /></button>
-                  {(user?.role === 'admin' || user?.role === 'manager') && (
-                    <button onClick={(e) => { e.stopPropagation(); handleDelete(d._id); }} className="p-1 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
-                  )}
+                  {/* Actions moved to Details Modal */}
                 </td>
               </tr>
             ))}
@@ -562,7 +579,21 @@ export default function DevicesDashboard() {
             )}
             <div className="pt-4 border-t border-[var(--hairline)] flex justify-end gap-2">
               <Btn variant="ghost" type="button" onClick={() => setViewingDevice(null)}>Close</Btn>
-              <Btn variant="primary" type="button" onClick={handleViewDeviceEdit}>Edit</Btn>
+              {(user?.role === 'admin' || user?.role === 'manager') && (
+                <>
+                  <Btn variant="primary" type="button" onClick={handleViewDeviceEdit}>Edit</Btn>
+                  <button 
+                    onClick={() => {
+                      handleDelete(viewingDevice._id);
+                      setViewingDevice(null);
+                    }} 
+                    className="p-2 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2" 
+                    title="Delete Device"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

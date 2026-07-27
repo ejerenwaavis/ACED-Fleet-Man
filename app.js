@@ -1540,9 +1540,7 @@ app.post('/api/walkthrough-records/submit-all', async (req, res) => {
             date: { $gte: twelveHoursAgo }
         });
 
-        const completedRecords = [];
-
-        for (let record of drafts) {
+        const completedRecords = await Promise.all(drafts.map(async (record) => {
             // Mileage Discrepancy Engine
             let mileage = record.mileage;
             let maintenanceNote = record.maintenanceNote || '';
@@ -1614,8 +1612,8 @@ app.post('/api/walkthrough-records/submit-all', async (req, res) => {
                 }
             }
 
-            completedRecords.push(record);
-        }
+            return record;
+        }));
 
         res.json({ message: 'Submitted all drafts', count: completedRecords.length });
     } catch (err) {

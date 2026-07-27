@@ -24,6 +24,29 @@ export default function FleetRoster() {
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+  const handleSelect = (id: string, checked: boolean, shiftKey: boolean, list: any[]) => {
+    if (shiftKey && lastSelectedId) {
+      const currentIndex = list.findIndex(item => item._id === id);
+      const lastIndex = list.findIndex(item => item._id === lastSelectedId);
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const start = Math.min(currentIndex, lastIndex);
+        const end = Math.max(currentIndex, lastIndex);
+        const idsInRange = list.slice(start, end + 1).map(item => item._id);
+        
+        if (checked) {
+          setSelectedExportIds(prev => Array.from(new Set([...prev, ...idsInRange])));
+        } else {
+          setSelectedExportIds(prev => prev.filter(pId => !idsInRange.includes(pId)));
+        }
+      }
+    } else {
+      if (checked) setSelectedExportIds(prev => [...prev, id]);
+      else setSelectedExportIds(prev => prev.filter(pId => pId !== id));
+    }
+    setLastSelectedId(id);
+  };
   
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -445,6 +468,70 @@ export default function FleetRoster() {
         {editingTruck && <TruckForm defaultValues={editingTruck} id={editingTruck._id} />}
       </Modal>
 
+      <Modal isOpen={!!viewingTruck} onClose={() => setViewingTruck(null)} title={`Vehicle Details - ${viewingTruck?.truckNumber || ''}`} maxWidth="max-w-lg">
+        {viewingTruck && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Make / Model</span>
+                <span className="text-[var(--ink)] font-medium">{viewingTruck.makeModel || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">VIN</span>
+                <span className="text-[var(--ink)] font-medium">{viewingTruck.vin || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">License Plate</span>
+                <span className="text-[var(--ink)] font-medium font-mono">{viewingTruck.licensePlate || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Status</span>
+                <div className="mt-1"><StatusPill status={viewingTruck.status} /></div>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Mileage</span>
+                <span className="text-[var(--ink)] font-medium">{formatMileage(viewingTruck.lastKnownMileage)}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Fuel Type</span>
+                <span className="text-[var(--ink)] font-medium capitalize">{viewingTruck.fuelType || 'gas'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">Registration Expiry</span>
+                <span className="text-[var(--ink)] font-medium">{viewingTruck.registrationExpiry ? new Date(viewingTruck.registrationExpiry).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--steel-light)] mb-1">DOT Expiry</span>
+                <span className="text-[var(--ink)] font-medium">{viewingTruck.dotExpiry ? new Date(viewingTruck.dotExpiry).toLocaleDateString() : 'N/A'}</span>
+              </div>
+            </div>
+            
+            <div className="pt-4 border-t border-[var(--hairline)] flex justify-end gap-2">
+              <Btn variant="ghost" type="button" onClick={() => setViewingTruck(null)}>Close</Btn>
+              {(user?.role === 'admin' || user?.role === 'manager') && (
+                <>
+                  <Btn variant="primary" type="button" onClick={() => {
+                    const t = viewingTruck;
+                    setViewingTruck(null);
+                    setEditingTruck(t);
+                  }}>Edit</Btn>
+                  <button 
+                    onClick={() => {
+                      handleDeleteVehicle(viewingTruck._id, viewingTruck.truckNumber);
+                      setViewingTruck(null);
+                    }} 
+                    className="p-2 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2" 
+                    title="Delete Truck"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Modal isOpen={!!barcodeTruck} onClose={() => setBarcodeTruck(null)} title={`ID Tags - Truck #${barcodeTruck?.truckNumber}`}>
         {barcodeTruck && (
           <div className="flex flex-col items-center justify-center py-4 space-y-6">
@@ -540,15 +627,12 @@ export default function FleetRoster() {
           </thead>
           <tbody className="divide-y divide-[var(--hairline)] [&>tr:last-child>td:first-child]:rounded-bl-xl [&>tr:last-child>td:last-child]:rounded-br-xl">
             {filteredVehicles.map((v: any) => (
-              <tr key={v._id} className="hover:bg-gray-50/50">
+              <tr key={v._id} className="hover:bg-gray-50/50 cursor-pointer" onClick={() => setViewingTruck(v)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingTruck(v); } }}>
                 {isExportMode && (
-                  <td className="px-5 py-4 text-center">
+                  <td className="px-5 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" 
                            checked={selectedExportIds.includes(v._id)}
-                           onChange={(e) => {
-                             if (e.target.checked) setSelectedExportIds([...selectedExportIds, v._id]);
-                             else setSelectedExportIds(selectedExportIds.filter(id => id !== v._id));
-                           }}
+                           onChange={(e: any) => handleSelect(v._id, e.target.checked, e.nativeEvent.shiftKey, filteredVehicles)}
                            className="rounded border-[var(--hairline)]" />
                   </td>
                 )}
@@ -575,21 +659,8 @@ export default function FleetRoster() {
                 <td className="px-5 py-4"><OilGauge pct={v.lastOilChange ? 50 : 0} /></td>
                 <td className="px-5 py-4 text-right">
                   <div className="flex gap-2 justify-end items-center relative">
-                    <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)} className="px-2">MMR</Btn>
-                    <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)} className="px-2">ID Tags</Btn>
-                    <div className="relative">
-                      <Btn variant="ghost" icon={MoreVertical} onClick={() => setOpenActionMenuId(openActionMenuId === v._id ? null : v._id)} className="px-2" />
-                      {openActionMenuId === v._id && (
-                        <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg border border-[var(--hairline)] z-10 flex flex-col p-1 text-left">
-                          <button className="text-left px-3 py-2 text-sm text-[var(--ink)] hover:bg-gray-100 rounded-md" onClick={() => { setEditingTruck(v); setOpenActionMenuId(null); }}>Edit</button>
-                          {(user?.role === 'admin' || user?.role === 'manager') && (
-                            <button className="text-left px-3 py-2 text-sm text-[var(--red)] hover:bg-red-50 rounded-md flex items-center gap-2" onClick={() => { handleDeleteVehicle(v._id, v.truckNumber); setOpenActionMenuId(null); }}>
-                              <Trash2 className="w-3 h-3" /> Delete
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <Btn variant="ghost" icon={FileText} onClick={(e: any) => { e.stopPropagation(); setMmrTruck(v); }} className="px-2">MMR</Btn>
+                    <Btn variant="ghost" icon={Barcode} onClick={(e: any) => { e.stopPropagation(); setBarcodeTruck(v); }} className="px-2">ID Tags</Btn>
                   </div>
                 </td>
               </tr>
@@ -601,19 +672,18 @@ export default function FleetRoster() {
       {/* Mobile Stacked Cards */}
       <div className="lg:hidden space-y-3">
         {filteredVehicles.map((v: any) => (
-          <div key={v._id} className={`bg-[var(--surface)] border rounded-xl p-4 ${isExportMode && selectedExportIds.includes(v._id) ? 'border-[var(--signal)] ring-1 ring-[var(--signal)]' : 'border-[var(--hairline)]'}`}>
+          <div key={v._id} onClick={() => setViewingTruck(v)} className={`cursor-pointer bg-[var(--surface)] border rounded-xl p-4 ${isExportMode && selectedExportIds.includes(v._id) ? 'border-[var(--signal)] ring-1 ring-[var(--signal)]' : 'border-[var(--hairline)]'}`}>
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 {isExportMode && (
-                  <input
-                    type="checkbox"
-                    checked={selectedExportIds.includes(v._id)}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedExportIds([...selectedExportIds, v._id]);
-                      else setSelectedExportIds(selectedExportIds.filter(id => id !== v._id));
-                    }}
-                    className="w-5 h-5 rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]"
-                  />
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedExportIds.includes(v._id)}
+                      onChange={(e: any) => handleSelect(v._id, e.target.checked, e.nativeEvent.shiftKey, filteredVehicles)}
+                      className="w-5 h-5 rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]"
+                    />
+                  </div>
                 )}
                 <div className="flex flex-col gap-2">
                   <ManifestTag route={v.routeNumber} id={v.truckNumber} size="lg" />
@@ -644,14 +714,8 @@ export default function FleetRoster() {
                 <OilGauge pct={v.lastOilChange ? 50 : 0} />
               </div>
               <div className="col-span-2 flex justify-end gap-2 mt-2">
-                <Btn variant="ghost" icon={FileText} onClick={() => setMmrTruck(v)}>MMR</Btn>
-                <Btn variant="ghost" icon={Barcode} onClick={() => setBarcodeTruck(v)}>ID Tags</Btn>
-                <Btn variant="ghost" onClick={() => setEditingTruck(v)}>Edit</Btn>
-                {(user?.role === 'admin' || user?.role === 'manager') && (
-                  <button onClick={() => handleDeleteVehicle(v._id, v.truckNumber)} className="p-2 text-[var(--steel)] hover:text-[var(--red)] transition-colors ml-2" title="Delete Truck">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+                <Btn variant="ghost" icon={FileText} onClick={(e: any) => { e.stopPropagation(); setMmrTruck(v); }}>MMR</Btn>
+                <Btn variant="ghost" icon={Barcode} onClick={(e: any) => { e.stopPropagation(); setBarcodeTruck(v); }}>ID Tags</Btn>
               </div>
             </div>
           </div>

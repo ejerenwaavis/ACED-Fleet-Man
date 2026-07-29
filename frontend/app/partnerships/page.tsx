@@ -211,7 +211,7 @@ export default function PartnershipsPage() {
                   </button>
                 )}
                 
-                {p.status === 'active' && (
+                {(p.status === 'active' || p.status === 'suspended') && (
                    <Btn variant="ghost" className="w-full" onClick={() => openManageModal(p)}>Manage Bond</Btn>
                 )}
               </div>

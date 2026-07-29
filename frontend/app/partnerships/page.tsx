@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Handshake, CheckCircle2, XCircle, Clock, ShieldCheck, Mail, CheckSquare, Square } from "lucide-react";
-import { PageHeader, Btn } from "@/components/fleet/UI";
+import { Handshake, CheckCircle2, XCircle, Clock, ShieldCheck, Mail, CheckSquare, Square, Loader2 } from "lucide-react";
+import { PageHeader, Btn, Modal } from "@/components/fleet/UI";
 import { apiFetch } from "@/lib/api";
 import { exportToCsv } from "@/lib/exportCsv";
 import { useAuth } from "@/components/fleet/AuthProvider";
@@ -12,6 +12,12 @@ export default function PartnershipsPage() {
   const [partnerships, setPartnerships] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  
+  const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [selectedPartnership, setSelectedPartnership] = useState<any>(null);
+  const [manageStatus, setManageStatus] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updatingToggle, setUpdatingToggle] = useState<string | null>(null);
   
   useEffect(() => {
     fetchPartnerships();
@@ -43,28 +49,61 @@ export default function PartnershipsPage() {
   };
 
   const handleToggleAutoAssign = async (id: string, currentVal: boolean) => {
+    setUpdatingToggle(`${id}-assign`);
     try {
       const res = await apiFetch(`/api/partnerships/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ defaultAutoAssign: !currentVal })
       });
-      if (res.ok) fetchPartnerships();
+      if (res.ok) await fetchPartnerships();
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingToggle(null);
     }
   };
 
   const handleToggleAutoApprove = async (id: string, currentVal: boolean) => {
+    setUpdatingToggle(`${id}-approve`);
     try {
       const res = await apiFetch(`/api/partnerships/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ autoApproveSupplementalRequests: !currentVal })
       });
-      if (res.ok) fetchPartnerships();
+      if (res.ok) await fetchPartnerships();
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingToggle(null);
+    }
+  };
+
+  const openManageModal = (p: any) => {
+    setSelectedPartnership(p);
+    setManageStatus(p.status);
+    setManageModalOpen(true);
+  };
+
+  const handleUpdateBond = async (e: any) => {
+    e.preventDefault();
+    if (!selectedPartnership || isUpdating) return;
+    setIsUpdating(true);
+    try {
+      const res = await apiFetch(`/api/partnerships/${selectedPartnership._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: manageStatus })
+      });
+      if (res.ok) {
+        setManageModalOpen(false);
+        fetchPartnerships();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -142,36 +181,38 @@ export default function PartnershipsPage() {
 
                 {p.status === 'active' && isDsp && (
                   <button 
+                    disabled={updatingToggle === `${p._id}-assign`}
                     onClick={() => handleToggleAutoAssign(p._id, p.defaultAutoAssign)}
                     className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                       p.defaultAutoAssign ? 'bg-indigo-50 border-indigo-200 text-indigo-800' : 'bg-white border-[var(--hairline)] text-[var(--steel)] hover:border-[var(--steel)]'
-                    }`}
+                    } ${updatingToggle === `${p._id}-assign` ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <div className="flex flex-col items-start text-left">
                       <span className="font-semibold text-sm">Auto-Assign Jobs</span>
                       <span className="text-[10px] opacity-80">Route new jobs here by default</span>
                     </div>
-                    {p.defaultAutoAssign ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                    {updatingToggle === `${p._id}-assign` ? <Loader2 className="w-5 h-5 animate-spin" /> : p.defaultAutoAssign ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                   </button>
                 )}
 
                 {p.status === 'active' && isDsp && (
                   <button 
+                    disabled={updatingToggle === `${p._id}-approve`}
                     onClick={() => handleToggleAutoApprove(p._id, p.autoApproveSupplementalRequests)}
                     className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                       p.autoApproveSupplementalRequests ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-white border-[var(--hairline)] text-[var(--steel)] hover:border-[var(--steel)]'
-                    }`}
+                    } ${updatingToggle === `${p._id}-approve` ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <div className="flex flex-col items-start text-left">
                       <span className="font-semibold text-sm">Auto-Approve Jobs</span>
                       <span className="text-[10px] opacity-80">Trust mechanic to initiate jobs</span>
                     </div>
-                    {p.autoApproveSupplementalRequests ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                    {updatingToggle === `${p._id}-approve` ? <Loader2 className="w-5 h-5 animate-spin" /> : p.autoApproveSupplementalRequests ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                   </button>
                 )}
                 
                 {p.status === 'active' && (
-                   <Btn variant="ghost" className="w-full">Manage Bond</Btn>
+                   <Btn variant="ghost" className="w-full" onClick={() => openManageModal(p)}>Manage Bond</Btn>
                 )}
               </div>
             </div>
@@ -186,6 +227,49 @@ export default function PartnershipsPage() {
           </div>
         )}
       </div>
+
+      <Modal isOpen={manageModalOpen} onClose={() => setManageModalOpen(false)} title="Manage Bond">
+        {selectedPartnership && (
+          <form onSubmit={handleUpdateBond} className="space-y-4">
+            <div className="bg-[var(--canvas)] p-4 rounded-xl border border-[var(--hairline)] mb-4">
+              <h4 className="font-bold text-[var(--ink)] text-lg mb-1">{selectedPartnership.partnerName}</h4>
+              <p className="text-[var(--steel)] text-sm mb-4">You can suspend this partnership temporarily or terminate it permanently.</p>
+              
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input type="radio" name="bondStatus" value="active" checked={manageStatus === 'active'} onChange={() => setManageStatus('active')} className="text-[var(--signal)] focus:ring-[var(--signal)]" />
+                  <div className="flex-1">
+                    <span className="block font-semibold text-sm">Active</span>
+                    <span className="block text-xs text-[var(--steel)]">Partnership is active and functioning normally.</span>
+                  </div>
+                </label>
+                
+                <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-yellow-50 transition-colors">
+                  <input type="radio" name="bondStatus" value="suspended" checked={manageStatus === 'suspended'} onChange={() => setManageStatus('suspended')} className="text-yellow-600 focus:ring-yellow-600" />
+                  <div className="flex-1">
+                    <span className="block font-semibold text-sm text-yellow-800">Suspended</span>
+                    <span className="block text-xs text-yellow-700 opacity-80">Temporarily pause routing jobs to this partner.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-red-50 transition-colors">
+                  <input type="radio" name="bondStatus" value="terminated" checked={manageStatus === 'terminated'} onChange={() => setManageStatus('terminated')} className="text-red-600 focus:ring-red-600" />
+                  <div className="flex-1">
+                    <span className="block font-semibold text-sm text-red-800">Terminated</span>
+                    <span className="block text-xs text-red-700 opacity-80">Permanently end this partnership. Cannot be undone.</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Btn type="button" variant="ghost" onClick={() => setManageModalOpen(false)}>Cancel</Btn>
+              <Btn type="submit" variant="primary" isLoading={isUpdating}>Save Changes</Btn>
+            </div>
+          </form>
+        )}
+      </Modal>
+
     </div>
   );
 }

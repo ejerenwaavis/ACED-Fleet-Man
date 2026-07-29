@@ -568,7 +568,7 @@ app.post('/api/partnerships/:id/respond', isAuthenticated, isManagerOrAdmin, asy
 app.patch('/api/partnerships/:id', isAuthenticated, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     try {
-        const { status, terms, defaultAutoAssign } = req.body;
+        const { status, terms, defaultAutoAssign, autoApproveSupplementalRequests } = req.body;
         const p = await Partnership.findById(req.params.id);
         if (!p) return res.status(404).json({ error: 'Partnership not found' });
 
@@ -582,6 +582,9 @@ app.patch('/api/partnerships/:id', isAuthenticated, async (req, res) => {
         if (terms !== undefined) p.terms = terms;
         if (defaultAutoAssign !== undefined && req.user.entityId.toString() === p.dspEntityId.toString()) {
             p.defaultAutoAssign = defaultAutoAssign;
+        }
+        if (autoApproveSupplementalRequests !== undefined && req.user.entityId.toString() === p.dspEntityId.toString()) {
+            p.autoApproveSupplementalRequests = autoApproveSupplementalRequests;
         }
 
         await p.save();

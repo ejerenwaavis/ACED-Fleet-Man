@@ -35,6 +35,7 @@ jobs:
 
       - name: Sync build output into public/
         run: |
+          rm -rf public/_next
           rsync -a --delete frontend/out/ public/
 
       - name: Commit and push if changed

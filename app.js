@@ -2024,7 +2024,7 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
 
             const recentRepairs = await MaintenanceRequest.find({
                 entityId: req.user?.entityId,
-                vehicleId: vehicle.truckNumber,
+                vehicleId: vehicle._id,
                 status: 'completed',
                 updatedAt: { $gte: lastMonth, $lt: startOfThisMonth }
             });
@@ -2221,7 +2221,7 @@ app.get('/api/auto-mmr-data', async (req, res) => {
         const data = await Promise.all(vehicles.map(async (v) => {
             const maintenanceRecords = await MaintenanceRequest.find({
                 entityId: req.user?.entityId,
-                vehicleId: { $in: [v._id.toString(), v.truckNumber] },
+                vehicleId: v._id,
                 status: { $in: ['completed', 'closed'] },
                 updatedAt: { $gte: startOfMonth, $lt: endOfMonth }
             });

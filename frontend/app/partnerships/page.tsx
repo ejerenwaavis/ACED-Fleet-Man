@@ -60,7 +60,7 @@ export default function PartnershipsPage() {
       const res = await apiFetch(`/api/partnerships/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ autoApproveMechanicJobs: !currentVal })
+        body: JSON.stringify({ autoApproveSupplementalRequests: !currentVal })
       });
       if (res.ok) fetchPartnerships();
     } catch (err) {
@@ -157,16 +157,16 @@ export default function PartnershipsPage() {
 
                 {p.status === 'active' && isDsp && (
                   <button 
-                    onClick={() => handleToggleAutoApprove(p._id, p.autoApproveMechanicJobs)}
+                    onClick={() => handleToggleAutoApprove(p._id, p.autoApproveSupplementalRequests)}
                     className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                      p.autoApproveMechanicJobs ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-white border-[var(--hairline)] text-[var(--steel)] hover:border-[var(--steel)]'
+                      p.autoApproveSupplementalRequests ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-white border-[var(--hairline)] text-[var(--steel)] hover:border-[var(--steel)]'
                     }`}
                   >
                     <div className="flex flex-col items-start text-left">
                       <span className="font-semibold text-sm">Auto-Approve Jobs</span>
                       <span className="text-[10px] opacity-80">Trust mechanic to initiate jobs</span>
                     </div>
-                    {p.autoApproveMechanicJobs ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                    {p.autoApproveSupplementalRequests ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                   </button>
                 )}
                 

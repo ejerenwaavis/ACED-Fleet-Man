@@ -65,6 +65,7 @@ export function NewMaintenanceRequestModal({
         ) : (
           <Input label="Location / Asset Description" name="location" required placeholder="e.g. 5401 Tower Road, Main Gate" />
         )}
+        <Input label="Category (Optional)" name="category" placeholder="e.g. Engine, Tires, Preventive, PM..." />
         <Select label="Priority" name="priority" required options={[
           { label: 'Low', value: 'Low' },
           { label: 'Medium', value: 'Medium' },

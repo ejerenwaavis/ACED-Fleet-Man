@@ -13,7 +13,7 @@ const partnershipSchema = new mongoose.Schema({
     respondedAt: { type: Date },
     terms: { type: String },
     defaultAutoAssign: { type: Boolean, default: true },
-    autoApproveMechanicJobs: { type: Boolean, default: false } // For trusted mechanic workflows
+    autoApproveSupplementalRequests: { type: Boolean, default: false } // For trusted mechanic workflows
 }, { timestamps: true });
 
 partnershipSchema.index({ dspEntityId: 1, mspEntityId: 1 }, { unique: true });

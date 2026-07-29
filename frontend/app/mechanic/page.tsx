@@ -12,6 +12,8 @@ export default function MechanicDashboard() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  const [groupByTruck, setGroupByTruck] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
@@ -119,50 +121,84 @@ export default function MechanicDashboard() {
 
   if (loading) return <div className="p-8 text-center text-[var(--steel)]">Loading jobs...</div>;
 
-  const availableJobs = jobs.filter((j: any) => ['pending', 'assigned'].includes(j.status) && (!j.assignedMechanicId || j.assignedMechanicId?._id !== user?._id));
-  const myActiveJobs = jobs.filter((j: any) => ['accepted', 'in-progress', 'awaiting-parts'].includes(j.status) && j.assignedMechanicId?._id === user?._id);
-  const completed = jobs.filter((j: any) => ['completed', 'invoiced', 'closed'].includes(j.status) && j.assignedMechanicId?._id === user?._id);
+  const categories = ["All", ...Array.from(new Set(jobs.map((j: any) => j.category).filter(Boolean)))];
 
-  const Column = ({ title, items, icon: Icon, color }: any) => (
-    <div className="flex-1 min-w-[300px] bg-[var(--surface)] border border-[var(--hairline)] rounded-xl flex flex-col h-full max-h-[calc(100vh-200px)]">
-      <div className="p-4 border-b border-[var(--hairline)] flex items-center justify-between sticky top-0 bg-[var(--surface)] rounded-t-xl z-10">
-        <div className="flex items-center gap-2 font-semibold text-[var(--ink)]">
-          <Icon className="w-5 h-5" style={{ color }} />
-          {title}
+  const filteredJobs = jobs.filter((j: any) => selectedCategory === "All" || j.category === selectedCategory);
+
+  const availableJobs = filteredJobs.filter((j: any) => ['pending', 'assigned'].includes(j.status) && (!j.assignedMechanicId || j.assignedMechanicId?._id !== user?._id));
+  const myActiveJobs = filteredJobs.filter((j: any) => ['accepted', 'in-progress', 'awaiting-parts'].includes(j.status) && (user?.role !== 'mechanic' || j.assignedMechanicId?._id === user?._id));
+  const completed = filteredJobs.filter((j: any) => ['completed', 'invoiced', 'closed'].includes(j.status) && (user?.role !== 'mechanic' || j.assignedMechanicId?._id === user?._id));
+
+  const Column = ({ title, items, icon: Icon, color }: any) => {
+    let content;
+    
+    if (groupByTruck) {
+      const grouped: Record<string, any[]> = {};
+      items.forEach((j: any) => {
+        const key = typeof j.vehicleId === 'object' && j.vehicleId?.truckNumber ? j.vehicleId.truckNumber : (j.vehicleId || 'No Vehicle');
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(j);
+      });
+      content = Object.entries(grouped).map(([truck, truckJobs]) => (
+        <div key={truck} className="mb-4">
+          <div className="font-bold text-xs text-[var(--steel)] uppercase tracking-wider mb-2 px-1 border-b border-[var(--hairline)] pb-1 flex items-center gap-1">
+            <Truck className="w-3 h-3" /> {truck} ({truckJobs.length})
+          </div>
+          <div className="space-y-3">
+            {truckJobs.map((job: any) => <JobCard key={job._id} job={job} />)}
+          </div>
         </div>
-        <div className="bg-[var(--canvas)] px-2 py-0.5 rounded-full text-xs font-bold text-[var(--steel)]">
-          {items.length}
+      ));
+    } else {
+      content = items.map((job: any) => <JobCard key={job._id} job={job} />);
+    }
+
+    return (
+      <div className="flex-1 min-w-[300px] bg-[var(--surface)] border border-[var(--hairline)] rounded-xl flex flex-col h-full max-h-[calc(100vh-200px)]">
+        <div className="p-4 border-b border-[var(--hairline)] flex items-center justify-between sticky top-0 bg-[var(--surface)] rounded-t-xl z-10">
+          <div className="flex items-center gap-2 font-semibold text-[var(--ink)]">
+            <Icon className="w-5 h-5" style={{ color }} />
+            {title}
+          </div>
+          <div className="bg-[var(--canvas)] px-2 py-0.5 rounded-full text-xs font-bold text-[var(--steel)]">
+            {items.length}
+          </div>
+        </div>
+        <div className="p-3 overflow-y-auto flex-1 flex flex-col gap-3 bg-[var(--canvas)] rounded-b-xl">
+          {content}
+          {items.length === 0 && (
+            <div className="text-center p-6 text-sm text-[var(--steel-light)] border-2 border-dashed border-[var(--hairline)] rounded-xl">
+              No jobs in this category
+            </div>
+          )}
         </div>
       </div>
-      <div className="p-3 overflow-y-auto flex-1 flex flex-col gap-3 bg-[var(--canvas)] rounded-b-xl">
-        {items.map((job: any) => (
-          <div key={job._id} className="bg-white p-4 rounded-xl shadow-sm border border-[var(--hairline)] hover:border-[var(--signal)] cursor-pointer transition-colors" onClick={() => openUpdateModal(job)}>
-            <div className="flex justify-between items-start mb-3">
-              <JobStatusPill status={job.status} />
-              <div className="text-xs text-[var(--steel)] font-mono">{new Date(job.createdAt).toLocaleDateString()}</div>
-            </div>
-            <h4 className="font-bold text-[var(--ink)] mb-1">{job.title}</h4>
-            <p className="text-sm text-[var(--steel)] mb-3 line-clamp-2">{job.description}</p>
-            
-            <div className="flex items-center justify-between pt-3 border-t border-[var(--hairline)]">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ink)]">
-                {job.requestType === 'Property / Facility Issue' ? (
-                  <><MapPin className="w-3 h-3 text-[var(--steel)]" /> Property</>
-                ) : (
-                  <><Truck className="w-3 h-3 text-[var(--steel)]" /> {job.vehicleId || 'Vehicle'}</>
-                )}
-              </div>
-              <div className="text-[10px] text-[var(--steel)] uppercase tracking-wider font-semibold bg-[var(--canvas)] px-2 py-1 rounded-md">
-                {job.entityId?.name || "Unknown DSP"}
-              </div>
-            </div>
-          </div>
-        ))}
-        {items.length === 0 && (
-          <div className="text-center p-6 text-sm text-[var(--steel-light)] border-2 border-dashed border-[var(--hairline)] rounded-xl">
-            No jobs in this category
-          </div>
-        )}
+    );
+  };
+
+  const JobCard = ({ job }: { job: any }) => (
+    <div className="bg-white p-4 rounded-xl shadow-sm border border-[var(--hairline)] hover:border-[var(--signal)] cursor-pointer transition-colors" onClick={() => openUpdateModal(job)}>
+      <div className="flex justify-between items-start mb-3">
+        <JobStatusPill status={job.status} />
+        <div className="text-xs text-[var(--steel)] font-mono">{new Date(job.createdAt).toLocaleDateString()}</div>
+      </div>
+      <h4 className="font-bold text-[var(--ink)] mb-1">{job.title}</h4>
+      <p className="text-sm text-[var(--steel)] mb-3 line-clamp-2">{job.description}</p>
+      
+      <div className="flex items-center justify-between pt-3 border-t border-[var(--hairline)]">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ink)]">
+          {job.category && (
+            <span className="bg-gray-100 px-1.5 py-0.5 rounded mr-1 text-gray-600">{job.category}</span>
+          )}
+          {job.requestType === 'Property / Facility Issue' ? (
+            <><MapPin className="w-3 h-3 text-[var(--steel)]" /> Property</>
+          ) : (
+            <><Truck className="w-3 h-3 text-[var(--steel)]" /> {typeof job.vehicleId === 'object' ? job.vehicleId?.truckNumber : (job.vehicleId || 'Vehicle')}</>
+          )}
+        </div>
+        <div className="text-[10px] text-[var(--steel)] uppercase tracking-wider font-semibold bg-[var(--canvas)] px-2 py-1 rounded-md">
+          {job.entityId?.name || "Unknown DSP"}
+        </div>
       </div>
     </div>
   );
@@ -180,10 +216,28 @@ export default function MechanicDashboard() {
         }
       />
 
+      <div className="mb-4 flex gap-4 items-center bg-[var(--surface)] p-2 rounded-lg border border-[var(--hairline)]">
+        <Select
+          value={selectedCategory}
+          onChange={(e: any) => setSelectedCategory(e.target.value)}
+          options={categories.map(c => ({ label: c, value: c as string }))}
+          className="w-48 !mb-0"
+        />
+        <label className="flex items-center gap-2 text-sm font-medium text-[var(--ink)] cursor-pointer">
+          <input 
+            type="checkbox" 
+            checked={groupByTruck} 
+            onChange={(e) => setGroupByTruck(e.target.checked)} 
+            className="rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]"
+          />
+          Group by Truck
+        </label>
+      </div>
+
       <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-        <Column title="Available Jobs" items={availableJobs} icon={AlertTriangle} color="var(--amber)" />
-        <Column title="My Active Jobs" items={myActiveJobs} icon={Wrench} color="var(--signal)" />
-        <Column title="My Completed" items={completed} icon={CheckCircle2} color="var(--green)" />
+        <Column title="New Requests" items={availableJobs} icon={AlertTriangle} color="var(--amber)" />
+        <Column title={user?.role === 'mechanic' ? "My Jobs" : "Active Jobs"} items={myActiveJobs} icon={Wrench} color="var(--signal)" />
+        <Column title="Completed" items={completed} icon={CheckCircle2} color="var(--green)" />
       </div>
 
       <Modal isOpen={isUpdateModalOpen} onClose={() => setIsUpdateModalOpen(false)} title="Update Job Status">

@@ -132,9 +132,23 @@ export default function DirectoryPage() {
                   <Wrench className="w-3 h-3" />
                   Full Service
                 </div>
-                <button onClick={() => openModal(msp)} className="w-8 h-8 rounded-full bg-[var(--surface)] hover:bg-[var(--signal)] hover:text-white flex items-center justify-center transition-colors group-hover:scale-110">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                {msp.partnershipStatus === 'active' ? (
+                    <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                        <ShieldCheck className="w-4 h-4" /> Already Bonded
+                    </div>
+                ) : msp.partnershipStatus === 'pending' ? (
+                    <div className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Request Pending
+                    </div>
+                ) : msp.partnershipStatus === 'suspended' ? (
+                    <div className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold">
+                        Suspended
+                    </div>
+                ) : (
+                    <button onClick={() => openModal(msp)} className="px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--signal)] hover:text-white flex items-center gap-1 transition-colors text-sm font-medium">
+                        Connect <ChevronRight className="w-4 h-4" />
+                    </button>
+                )}
               </div>
             </div>
           </div>

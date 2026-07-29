@@ -119,6 +119,23 @@ export default function ServicePage() {
     }
   };
 
+  const sendToNetwork = async (e: any) => {
+    e.stopPropagation();
+    if (!selectedJob) return;
+    try {
+      const res = await apiFetch(`/api/maintenance/${selectedJob._id}`, { 
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isInternal: false })
+      });
+      if (res.ok) {
+        setIsDetailsModalOpen(false);
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const Column = ({ title, items, icon: Icon, color }: any) => (
     <div className="flex-1 min-w-[85vw] md:min-w-[300px] snap-center bg-[var(--surface)] border border-[var(--hairline)] rounded-xl flex flex-col h-full max-h-[calc(100vh-200px)] shrink-0">
@@ -153,11 +170,15 @@ export default function ServicePage() {
                 )}
               </div>
             </div>
-            </div>
             <div className="flex items-center justify-between mb-1">
               <h4 className="font-bold text-[var(--ink)]">{job.title}</h4>
-              {job.visibility === 'internal' && (
+              {job.isInternal && (
                 <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ml-2">Internal Only</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 mb-2">
+              {job.category && (
+                <span className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-semibold text-gray-600">{job.category}</span>
               )}
             </div>
             <p className="text-sm text-[var(--steel)] mb-3 line-clamp-2">{job.description}</p>
@@ -314,13 +335,15 @@ export default function ServicePage() {
                 )}
               </div>
             )}
-            )}
             
-            {selectedJob.approvalStatus === 'pending_admin_approval' && (
-              <div className="pt-4 border-t border-[var(--hairline)] flex justify-end">
+            <div className="pt-4 border-t border-[var(--hairline)] flex justify-end gap-2 mt-4">
+              {selectedJob.isInternal && (
+                <Btn variant="outline" onClick={sendToNetwork}>Send to Mechanic Network</Btn>
+              )}
+              {selectedJob.approvalStatus === 'pending_admin_approval' && (
                 <Btn variant="primary" onClick={approveRequest}>Approve Mechanic Request</Btn>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </Modal>

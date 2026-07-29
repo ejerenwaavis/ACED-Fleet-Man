@@ -309,6 +309,16 @@ const isManagerOrAdmin = (req, res, next) => {
     res.status(401).json({ error: 'Unauthorized' });
 };
 
+const isMspTeamMember = (req, res, next) => {
+    if (req.isAuthenticated()) {
+        if (req.user.role === 'manager' || req.user.role === 'admin' || req.user.role === 'mechanic') {
+            return next();
+        }
+        return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+    res.status(401).json({ error: 'Unauthorized' });
+};
+
 // --- Invite APIs ---
 app.post('/api/invites/generate', isAuthenticated, async (req, res) => {
     // Only admins or managers can generate invites
@@ -458,8 +468,18 @@ app.post('/api/mechanic/settings', isAuthenticated, async (req, res) => {
 app.get('/api/msp/directory', isAuthenticated, isManagerOrAdmin, async (req, res) => {
     try {
         const msps = await Entity.find({ entityType: 'msp', listedInDirectory: true })
-            .select('name description contactEmail contactPhone specialties serviceRadius isVerified');
-        res.json(msps);
+            .select('name description contactEmail contactPhone specialties serviceRadius isVerified').lean();
+            
+        const partnerships = await Partnership.find({ dspEntityId: req.user.entityId });
+        const pMap = {};
+        partnerships.forEach(p => pMap[p.mspEntityId.toString()] = p.status);
+        
+        const result = msps.map(msp => ({
+            ...msp,
+            partnershipStatus: pMap[msp._id.toString()] || null
+        }));
+        
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -572,12 +592,24 @@ app.patch('/api/partnerships/:id', isAuthenticated, async (req, res) => {
 });
 
 // --- MSP Jobs APIs ---
-app.get('/api/msp/jobs', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+app.get('/api/msp/jobs', isAuthenticated, isMspTeamMember, async (req, res) => {
     try {
-        const jobs = await MaintenanceRequest.find({ 
+        const query = { 
             assignedMspEntityId: req.user.entityId,
-            visibility: { $ne: 'internal' }
-        })
+            isInternal: { $ne: true },
+            visibility: { $ne: 'internal' } // Fallback for older tickets
+        };
+
+        // If the user is a mechanic, they should not see other mechanics' claimed jobs
+        if (req.user.role === 'mechanic') {
+            query.$or = [
+                { assignedMechanicId: null },
+                { assignedMechanicId: { $exists: false } },
+                { assignedMechanicId: req.user._id }
+            ];
+        }
+
+        const jobs = await MaintenanceRequest.find(query)
             .populate('entityId', 'name contactEmail contactPhone') // The DSP
             .populate('assignedMechanicId', 'name')
             .sort('-createdAt');
@@ -587,7 +619,7 @@ app.get('/api/msp/jobs', isAuthenticated, isManagerOrAdmin, async (req, res) => 
     }
 });
 
-app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, uploadTemp.array('mechanicAttachments', 5), async (req, res) => {
+app.patch('/api/msp/jobs/:id/status', isAuthenticated, isMspTeamMember, uploadTemp.array('mechanicAttachments', 5), async (req, res) => {
     try {
         const { status, mechanicNotes, laborHours, laborRate } = req.body;
         const job = await MaintenanceRequest.findOne({ 
@@ -597,6 +629,11 @@ app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, uploadT
 
         if (!job) return res.status(404).json({ error: 'Job not found' });
 
+        // Enforce claim lock
+        if (job.assignedMechanicId && job.assignedMechanicId.toString() !== req.user._id.toString() && req.user.role === 'mechanic') {
+            return res.status(403).json({ error: 'Job is claimed by another mechanic' });
+        }
+
         const oldStatus = job.status;
         job.status = status;
         
@@ -604,7 +641,10 @@ app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, uploadT
         if (laborHours !== undefined && laborHours !== "") job.laborHours = Number(laborHours);
         if (laborRate !== undefined && laborRate !== "") job.laborRate = Number(laborRate);
 
-        if (status === 'accepted' && oldStatus !== 'accepted') job.acceptedAt = new Date();
+        if (status === 'accepted' && oldStatus !== 'accepted') {
+            job.acceptedAt = new Date();
+            if (!job.assignedMechanicId) job.assignedMechanicId = req.user._id;
+        }
         if (status === 'completed' && oldStatus !== 'completed') job.completedAt = new Date();
 
         if (req.files && Array.isArray(req.files)) {
@@ -644,9 +684,38 @@ app.patch('/api/msp/jobs/:id/status', isAuthenticated, isManagerOrAdmin, uploadT
     }
 });
 
+app.patch('/api/msp/jobs/:id/reassign', isAuthenticated, isManagerOrAdmin, async (req, res) => {
+    try {
+        const { assignedMechanicId } = req.body;
+        const job = await MaintenanceRequest.findOne({ 
+            _id: req.params.id, 
+            assignedMspEntityId: req.user.entityId 
+        });
+
+        if (!job) return res.status(404).json({ error: 'Job not found' });
+
+        const oldMechanicId = job.assignedMechanicId;
+        job.assignedMechanicId = assignedMechanicId || null;
+        await job.save();
+
+        await ActivityLog.create({
+            jobId: job._id,
+            actorId: req.user._id,
+            actorEntityId: req.user.entityId,
+            action: 'reassign_mechanic',
+            fromValue: oldMechanicId ? oldMechanicId.toString() : 'unassigned',
+            toValue: assignedMechanicId || 'unassigned'
+        });
+
+        res.json({ success: true, job });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/msp/jobs/initiate', isAuthenticated, uploadTemp.array('mechanicAttachments', 5), async (req, res) => {
     try {
-        const { vehicleId, title, description, parentRequestId } = req.body;
+        const { vehicleId, title, description, parentRequestId, category } = req.body;
         
         // Find vehicle to get fleet entityId
         const vehicle = await Vehicle.findById(vehicleId);
@@ -660,7 +729,7 @@ app.post('/api/msp/jobs/initiate', isAuthenticated, uploadTemp.array('mechanicAt
         const partnership = await Partnership.findOne({ dspEntityId, mspEntityId, status: 'active' });
         if (!partnership) return res.status(403).json({ error: 'No active partnership with this fleet' });
 
-        const isAutoApprove = partnership.autoApproveMechanicJobs === true;
+        const isAutoApprove = partnership.autoApproveSupplementalRequests === true;
         
         // Upload attachments
         let photoUrls = [];
@@ -691,7 +760,8 @@ app.post('/api/msp/jobs/initiate', isAuthenticated, uploadTemp.array('mechanicAt
             mechanicAttachments: photoUrls,
             initiatedByMechanic: true,
             approvalStatus: isAutoApprove ? 'auto_approved' : 'pending_admin_approval',
-            parentRequestId: parentRequestId || undefined
+            parentRequestId: parentRequestId || undefined,
+            category: category || undefined
         });
 
         await newRequest.save();
@@ -1412,6 +1482,60 @@ app.post('/api/maintenance', isAuthenticated, uploadTemp.array('attachments', 5)
         res.status(500).send('Error submitting maintenance request');
     }
 });
+
+app.patch('/api/maintenance/:id', isAuthenticated, uploadTemp.array('attachments', 5), async (req, res) => {
+    try {
+        const { title, description, vehicleId, priority, requestType, location, category, isInternal } = req.body;
+        const job = await MaintenanceRequest.findOne({ 
+            _id: req.params.id, 
+            entityId: req.user.entityId 
+        });
+
+        if (!job) return res.status(404).json({ error: 'Job not found' });
+
+        // Once accepted, DSP can no longer edit core fields
+        const isLocked = ['accepted', 'in-progress', 'awaiting-parts', 'completed', 'invoiced', 'closed'].includes(job.status);
+        
+        if (!isLocked) {
+            if (title !== undefined) job.title = title;
+            if (description !== undefined) job.description = description;
+            if (vehicleId !== undefined) job.vehicleId = vehicleId;
+            if (priority !== undefined) job.priority = priority;
+            if (requestType !== undefined) job.requestType = requestType;
+            if (location !== undefined) job.location = location;
+            if (category !== undefined) job.category = category;
+        }
+
+        // isInternal can be updated to false (sending to network)
+        if (isInternal === false || isInternal === 'false') {
+            job.isInternal = false;
+        }
+
+        // Attachments can always be added
+        if (req.files && Array.isArray(req.files)) {
+            let photoUrls = [];
+            for (const file of req.files) {
+                try {
+                    const result = await cloudinary.uploader.upload(file.path, { folder: 'fleetMan' });
+                    photoUrls.push(result.secure_url);
+                } catch (uploadErr) {
+                    console.error("Cloudinary upload failed:", uploadErr);
+                } finally {
+                    const fs = require('fs');
+                    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+                }
+            }
+            if (photoUrls.length > 0) {
+                job.attachments = [...(job.attachments || []), ...photoUrls];
+            }
+        }
+
+        await job.save();
+        res.json({ success: true, job });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 // --- Dynamic Walkthrough Routes ---
 
 // Get all active templates for an entity
@@ -1590,6 +1714,7 @@ app.post('/api/walkthrough-records', async (req, res) => {
                         vehicleId,
                         reportedBy: req.user?._id,
                         visibility: 'internal',
+                        isInternal: true,
                         status: 'pending',
                         priority: 'medium'
                     });
@@ -1697,7 +1822,8 @@ app.post('/api/walkthrough-records/submit-all', async (req, res) => {
                         reportedBy: req.user?._id,
                         status: 'pending',
                         priority: 'medium',
-                        visibility: 'internal'
+                        visibility: 'internal',
+                        isInternal: true
                     });
                     await newRequest.save();
                 }

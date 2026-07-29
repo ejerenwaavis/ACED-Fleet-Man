@@ -41,7 +41,9 @@ const maintenanceRequestSchema = new mongoose.Schema({
     invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
     
     // New Mechanic Privacy & Workflow Fields
+    isInternal: { type: Boolean, default: false },
     visibility: { type: String, enum: ['internal', 'public'], default: 'public' },
+    category: { type: String },
     initiatedByMechanic: { type: Boolean, default: false },
     approvalStatus: { type: String, enum: ['pending_admin_approval', 'approved', 'auto_approved'], default: 'approved' },
     parentRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'MaintenanceRequest' }

@@ -5,7 +5,7 @@ const maintenanceRequestSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String, required: true },
     requestType: { type: String, enum: ['Vehicle Issue', 'Property / Facility Issue', 'Device Issue'], default: 'Vehicle Issue' },
-    vehicleId: { type: String }, // Optional for Property issues
+    vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle' }, // Optional for Property issues
     deviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Device' },
     assetType: { type: String, enum: ['vehicle', 'device', 'property'], default: 'vehicle' },
     location: { type: String }, // For property issues or vehicle locations

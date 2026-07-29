@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Truck, Wrench, AlertTriangle, CheckCircle2, MapPin, ExternalLink, Plus, XCircle } from "lucide-react";
+import { Truck, Wrench, AlertTriangle, CheckCircle2, MapPin, Plus, XCircle, Download, FileText } from "lucide-react";
 import { PageHeader, Btn, JobStatusPill, Modal, Input } from "@/components/fleet/UI";
 import { NewMaintenanceRequestModal } from "@/components/fleet/NewMaintenanceRequestModal";
 import { apiFetch } from "@/lib/api";
 import { exportToCsv } from "@/lib/exportCsv";
-import { exportToPdf } from "@/lib/exportPdf";
+import { exportRequestCardsToPdf } from "@/lib/exportPdf";
 import { useAuth } from "@/components/fleet/AuthProvider";
-import { Download, FileText } from "lucide-react";
 
 export default function ServicePage() {
   const { user } = useAuth();
@@ -19,6 +18,8 @@ export default function ServicePage() {
   const [activeMsps, setActiveMsps] = useState<any[]>([]);
   const currentMonthStr = new Date().toISOString().substring(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
+  const [isExportMode, setIsExportMode] = useState(false);
+  const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   
   // Modals state
   const [selectedJob, setSelectedJob] = useState<any>(null);
@@ -59,6 +60,12 @@ export default function ServicePage() {
     ? requests.filter(r => r.createdAt && r.createdAt.startsWith(selectedMonth))
     : requests;
 
+  useEffect(() => {
+    if (!isExportMode) return;
+    const visibleRequestIds = new Set(filteredRequests.map((request: any) => request._id));
+    setSelectedExportIds(prev => prev.filter(id => visibleRequestIds.has(id)));
+  }, [filteredRequests, isExportMode]);
+
   const newRequests = filteredRequests.filter(r => ['pending', 'assigned'].includes(r.status) && r.approvalStatus !== 'pending_admin_approval');
   const pendingApprovals = filteredRequests.filter(r => r.approvalStatus === 'pending_admin_approval');
   const inProgress = filteredRequests.filter(r => ['accepted', 'in-progress', 'awaiting-parts'].includes(r.status));
@@ -69,6 +76,60 @@ export default function ServicePage() {
   if (!availableMonths.includes(currentMonthStr)) {
     availableMonths.unshift(currentMonthStr);
   }
+
+  const getExportTruckNumber = (request: any) => {
+    if (request.requestType === 'Property / Facility Issue' || !request.vehicleId?.truckNumber) {
+      return 'N/A (Property)';
+    }
+    return request.vehicleId.truckNumber;
+  };
+
+  const toExportRequest = (request: any) => {
+    const notes = typeof request.mechanicNotes === 'string' ? request.mechanicNotes.trim() : '';
+    return {
+      title: request.title || 'N/A',
+      truckNumber: getExportTruckNumber(request),
+      issue: request.description || 'N/A',
+      location: request.location?.trim() ? request.location.trim() : 'N/A',
+      ...(notes ? { notes } : {})
+    };
+  };
+
+  const handleRequestExportSelection = (requestId: string, checked: boolean) => {
+    const visibleRequestIds = new Set(filteredRequests.map((request: any) => request._id));
+    if (!visibleRequestIds.has(requestId)) return;
+    if (checked) {
+      setSelectedExportIds(prev => (prev.includes(requestId) ? prev : [...prev, requestId]));
+      return;
+    }
+    setSelectedExportIds(prev => prev.filter(id => id !== requestId));
+  };
+
+  const handleExportCsv = () => {
+    const selectedRequests = filteredRequests.filter((request: any) => selectedExportIds.includes(request._id));
+    const rows = selectedRequests.map((request: any) => {
+      const row = toExportRequest(request);
+      return {
+        'Title': row.title,
+        'Truck Number': row.truckNumber,
+        'Issue': row.issue,
+        'Location': row.location,
+        'Notes': row.notes || ''
+      };
+    });
+    exportToCsv('Maintenance_Requests_Export', rows);
+    setIsExportMode(false);
+    setSelectedExportIds([]);
+  };
+
+  const handleExportPdf = () => {
+    const selectedRequests = filteredRequests.filter((request: any) => selectedExportIds.includes(request._id));
+    const rows = selectedRequests.map((request: any) => toExportRequest(request));
+    if (exportRequestCardsToPdf('Service & Repairs Export', rows)) {
+      setIsExportMode(false);
+      setSelectedExportIds([]);
+    }
+  };
 
   const openDetails = (job: any) => {
     setSelectedJob(job);
@@ -152,12 +213,24 @@ export default function ServicePage() {
         {items.map((job: any) => (
           <div 
             key={job._id} 
-            className="bg-white p-4 rounded-xl shadow-sm border border-[var(--hairline)] hover:border-[var(--signal)] cursor-pointer transition-colors relative group"
+            className={`bg-white p-4 rounded-xl shadow-sm border hover:border-[var(--signal)] cursor-pointer transition-colors relative group ${
+              isExportMode && selectedExportIds.includes(job._id) ? 'border-[var(--signal)] ring-1 ring-[var(--signal)]' : 'border-[var(--hairline)]'
+            }`}
             onClick={() => openDetails(job)}
           >
             <div className="flex justify-between items-start mb-3">
               <JobStatusPill status={job.status} />
               <div className="flex items-center gap-2">
+                {isExportMode && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedExportIds.includes(job._id)}
+                      onChange={(e: any) => handleRequestExportSelection(job._id, e.target.checked)}
+                      className="w-4 h-4 rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]"
+                    />
+                  </div>
+                )}
                 <div className="text-xs text-[var(--steel)] font-mono">{new Date(job.createdAt).toLocaleDateString()}</div>
                 {['pending', 'assigned'].includes(job.status) && ['admin', 'manager'].includes(user?.role) && (
                   <button 
@@ -225,31 +298,19 @@ export default function ServicePage() {
                 return <option key={m} value={m}>{date.toLocaleString('default', { month: 'short', year: 'numeric' })}</option>;
               })}
             </select>
-            <Btn variant="ghost" icon={Download} onClick={() => {
-              const dataToExport = filteredRequests.map((r: any) => ({
-                'Date': new Date(r.createdAt).toLocaleDateString(),
-                'Title': r.title,
-                'Type': r.requestType,
-                'Asset ID': r.vehicleId || r.deviceId?.deviceId || 'N/A',
-                'Status': r.status,
-                'Priority': r.priority,
-                'Mechanic': r.assignedMechanicId?.displayName || 'Unassigned'
-              }));
-              exportToCsv('Maintenance_Requests_Export', dataToExport);
-            }}>Export CSV</Btn>
-            <Btn variant="ghost" icon={FileText} onClick={() => {
-              const dataToExport = filteredRequests.map((r: any) => ({
-                'Date': new Date(r.createdAt).toLocaleDateString(),
-                'Title': r.title,
-                'Type': r.requestType,
-                'Asset ID': r.vehicleId || r.deviceId?.deviceId || 'N/A',
-                'Status': r.status,
-                'Priority': r.priority,
-                'Mechanic': r.assignedMechanicId?.displayName || 'Unassigned'
-              }));
-              exportToPdf('Service & Repairs Export', dataToExport);
-            }}>Export PDF</Btn>
-            <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New Request</Btn>
+            {isExportMode ? (
+              <>
+                <span className="text-sm font-semibold text-[var(--steel)]">{selectedExportIds.length} selected</span>
+                <Btn variant="ghost" onClick={() => { setIsExportMode(false); setSelectedExportIds([]); }}>Cancel</Btn>
+                <Btn variant="ghost" icon={FileText} disabled={!selectedExportIds.length} onClick={handleExportPdf}>Export PDF</Btn>
+                <Btn variant="primary" icon={Download} disabled={!selectedExportIds.length} onClick={handleExportCsv}>Export CSV</Btn>
+              </>
+            ) : (
+              <>
+                <Btn variant="ghost" icon={Download} onClick={() => setIsExportMode(true)}>Export Requests</Btn>
+                <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New Request</Btn>
+              </>
+            )}
           </div>
         }
       />

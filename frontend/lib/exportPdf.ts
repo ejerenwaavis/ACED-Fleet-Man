@@ -117,3 +117,73 @@ export const exportGroupedToPdf = (title: string, groups: { section: string, row
     return false;
   }
 };
+
+export const exportRequestCardsToPdf = (
+  title: string,
+  requests: {
+    title: string;
+    truckNumber: string;
+    issue: string;
+    location: string;
+    notes?: string;
+  }[]
+) => {
+  if (!requests || requests.length === 0) return false;
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    alert('Please allow pop-ups to export the PDF.');
+    return false;
+  }
+
+  const html = `
+  <html>
+    <head>
+      <title>${escapeHtml(title)}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 32px; color: #12151c; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        p.meta { color: #6b7280; font-size: 12px; margin-top: 0; margin-bottom: 24px; }
+        .request { padding: 0 0 18px 0; margin: 0 0 18px 0; border-bottom: 1px solid #e4e7ec; }
+        .request:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .request-title { font-size: 16px; font-weight: 700; margin: 0 0 8px 0; }
+        .request-meta { font-size: 12px; color: #374151; margin: 0 0 8px 0; }
+        .label { font-weight: 700; color: #111827; }
+        .issue, .notes { font-size: 13px; line-height: 1.5; margin: 0; white-space: pre-wrap; }
+        .notes-wrap { margin-top: 10px; }
+      </style>
+    </head>
+    <body>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="meta">Generated ${escapeHtml(new Date().toLocaleString())} &middot; ${requests.length} item(s)</p>
+      ${requests.map((request) => `
+        <section class="request">
+          <h2 class="request-title">${escapeHtml(request.title || 'Untitled Request')}</h2>
+          <p class="request-meta">
+            <span class="label">Truck Number:</span> ${escapeHtml(request.truckNumber || 'N/A')}
+            &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+            <span class="label">Location:</span> ${escapeHtml(request.location || 'N/A')}
+          </p>
+          <p class="issue"><span class="label">Issue:</span> ${escapeHtml(request.issue || 'N/A')}</p>
+          ${request.notes ? `<div class="notes-wrap"><p class="notes"><span class="label">Notes:</span> ${escapeHtml(request.notes)}</p></div>` : ''}
+        </section>
+      `).join('')}
+    </body>
+  </html>
+  `;
+
+  try {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    window.setTimeout(() => {
+      if (!printWindow.closed) {
+        printWindow.print();
+      }
+    }, 100);
+    return true;
+  } catch (error) {
+    console.error('Failed to prepare export window', error);
+    printWindow.close();
+    return false;
+  }
+};

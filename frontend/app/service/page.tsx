@@ -20,6 +20,7 @@ export default function ServicePage() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
   const [isExportMode, setIsExportMode] = useState(false);
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
+  const [groupByTruck, setGroupByTruck] = useState(false);
   
   // Modals state
   const [selectedJob, setSelectedJob] = useState<any>(null);

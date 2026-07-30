@@ -15,6 +15,7 @@ const walkthroughTemplateSchema = new mongoose.Schema({
     frequency: { type: String, enum: ['daily', 'weekly', 'bi-weekly', 'monthly', 'custom'], default: 'daily' },
     description: { type: String },
     items: [itemSchema],
+    deviceTypes: [{ type: String }],
     isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

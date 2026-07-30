@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const deviceSchema = new mongoose.Schema({
     entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity', required: true },
-    type: { type: String, enum: ['scanner', 'ipad', 'radar', 'camera', 'other'], required: true },
+    type: { type: String, required: true },
     deviceId: { type: String, required: true },
     model: { type: String },
     imei: { type: String },

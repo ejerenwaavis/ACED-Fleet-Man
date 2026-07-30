@@ -673,7 +673,27 @@ export default function DevicesDashboard() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Type" options={typeOptions} value={type} onChange={(e: any) => setType(e.target.value)} required />
+            <div>
+              <label className="block text-sm font-medium text-[var(--ink)] mb-1.5">Type</label>
+              <input 
+                type="text" 
+                list="typeOptionsList"
+                value={type}
+                onChange={(e: any) => setType(e.target.value.toLowerCase())}
+                required
+                className="w-full px-3 py-2 border border-[var(--hairline)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--signal)] focus:border-transparent text-sm bg-white"
+                placeholder="e.g. scanner, pallet jack..."
+              />
+              <datalist id="typeOptionsList">
+                {Array.from(new Set(devices.map(d => d.type?.toLowerCase()).filter(Boolean))).map(t => (
+                  <option key={t} value={t} />
+                ))}
+                <option value="scanner" />
+                <option value="ipad" />
+                <option value="radar" />
+                <option value="camera" />
+              </datalist>
+            </div>
             <Select label="Status" options={statusOptions} value={status} onChange={(e: any) => {
                 setStatus(e.target.value);
                 if (e.target.value !== 'Assigned') setAssignedVehicle('');

@@ -216,22 +216,30 @@ export default function MechanicDashboard() {
         }
       />
 
-      <div className="mb-4 flex gap-4 items-center bg-[var(--surface)] p-2 rounded-lg border border-[var(--hairline)]">
-        <Select
-          value={selectedCategory}
-          onChange={(e: any) => setSelectedCategory(e.target.value)}
-          options={categories.map(c => ({ label: c, value: c as string }))}
-          className="w-48 !mb-0"
-        />
-        <label className="flex items-center gap-2 text-sm font-medium text-[var(--ink)] cursor-pointer">
-          <input 
-            type="checkbox" 
-            checked={groupByTruck} 
-            onChange={(e) => setGroupByTruck(e.target.checked)} 
-            className="rounded border-[var(--hairline)] text-[var(--signal)] focus:ring-[var(--signal)]"
+      <div className="mb-4 flex gap-4 items-center bg-white p-2 rounded-xl border border-[var(--hairline)] shadow-sm">
+        <div className="flex bg-[var(--canvas)] p-1 rounded-lg">
+          <button 
+            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${!groupByTruck ? 'bg-white text-[var(--signal)] shadow-sm' : 'text-[var(--steel)] hover:text-[var(--ink)]'}`}
+            onClick={() => setGroupByTruck(false)}
+          >
+            Board View
+          </button>
+          <button 
+            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all ${groupByTruck ? 'bg-white text-[var(--signal)] shadow-sm' : 'text-[var(--steel)] hover:text-[var(--ink)]'}`}
+            onClick={() => setGroupByTruck(true)}
+          >
+            Group by Truck
+          </button>
+        </div>
+        <div className="h-6 w-px bg-[var(--hairline)] mx-2"></div>
+        <div className="flex-1 max-w-[250px]">
+          <Select
+            value={selectedCategory}
+            onChange={(e: any) => setSelectedCategory(e.target.value)}
+            options={categories.map(c => ({ label: c === "All" ? "All Categories" : c, value: c as string }))}
+            className="!mb-0"
           />
-          Group by Truck
-        </label>
+        </div>
       </div>
 
       <div className="flex-1 flex gap-6 overflow-x-auto pb-4">

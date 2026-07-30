@@ -1567,7 +1567,7 @@ app.get('/api/walkthrough-templates/:id', async (req, res) => {
 // Create or Update a template
 app.post('/api/walkthrough-templates', async (req, res) => {
     try {
-        const { _id, name, frequency, description, items, isActive } = req.body;
+        const { _id, name, frequency, description, items, deviceTypes, isActive } = req.body;
         
         const templateData = {
             entityId: req.user?.entityId,

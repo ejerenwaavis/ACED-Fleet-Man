@@ -1488,7 +1488,7 @@ app.post('/api/maintenance', isAuthenticated, uploadTemp.array('attachments', 5)
 
 app.patch('/api/maintenance/:id', isAuthenticated, uploadTemp.array('attachments', 5), async (req, res) => {
     try {
-        const { title, description, vehicleId, priority, requestType, location, category, isInternal } = req.body;
+        const { title, description, vehicleId, priority, requestType, location, category, isInternal, assignedMspEntityId } = req.body;
         const job = await MaintenanceRequest.findOne({ 
             _id: req.params.id, 
             entityId: req.user.entityId 
@@ -1507,6 +1507,14 @@ app.patch('/api/maintenance/:id', isAuthenticated, uploadTemp.array('attachments
             if (requestType !== undefined) job.requestType = requestType;
             if (location !== undefined) job.location = location;
             if (category !== undefined) job.category = category;
+            if (assignedMspEntityId !== undefined) {
+                job.assignedMspEntityId = assignedMspEntityId || null;
+                if (assignedMspEntityId) {
+                    job.status = 'assigned';
+                } else {
+                    job.status = 'pending';
+                }
+            }
         }
 
         // isInternal can be updated to false (sending to network)

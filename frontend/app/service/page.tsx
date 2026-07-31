@@ -353,7 +353,38 @@ export default function ServicePage() {
               {selectedJob.requestType === 'Property / Facility Issue' && selectedJob.location && (
                 <p><strong>Location:</strong> {selectedJob.location}</p>
               )}
-              <p><strong>Assigned To:</strong> {selectedJob.assignedMspEntityId?.name || "Internal / Unassigned"}</p>
+                            <div className="flex items-center gap-2">
+                <strong>Assigned To:</strong> 
+                {user?.role === 'admin' && ['pending', 'assigned'].includes(selectedJob.status) ? (
+                  <select 
+                    className="border border-[var(--hairline)] rounded px-2 py-1 text-sm bg-white"
+                    value={selectedJob.assignedMspEntityId?._id || ""}
+                    onChange={async (e) => {
+                      const newMsp = e.target.value;
+                      try {
+                        const res = await apiFetch(`/api/maintenance/${selectedJob._id}`, {
+                          method: 'PATCH',
+                          body: JSON.stringify({ assignedMspEntityId: newMsp || null })
+                        });
+                        if (res.ok) {
+                          fetchData();
+                          const mspEntity = newMsp ? activeMsps.find(m => m.entityId._id === newMsp)?.entityId : null;
+                          setSelectedJob({ ...selectedJob, assignedMspEntityId: mspEntity, status: newMsp ? 'assigned' : 'pending' });
+                        }
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                  >
+                    <option value="">Internal / Unassigned</option>
+                    {activeMsps.map((msp: any) => (
+                      <option key={msp.entityId._id} value={msp.entityId._id}>{msp.entityId.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span>{selectedJob.assignedMspEntityId?.name || "Internal / Unassigned"}</span>
+                )}
+              </div>
             </div>
             
             <div className="bg-[var(--canvas)] p-4 rounded-lg">

@@ -368,7 +368,7 @@ export default function ServicePage() {
                         });
                         if (res.ok) {
                           fetchData();
-                          const mspEntity = newMsp ? activeMsps.find(m => m.entityId._id === newMsp)?.entityId : null;
+                          const mspEntity = newMsp ? activeMsps.find(m => m.mspEntityId._id === newMsp)?.mspEntityId : null;
                           setSelectedJob({ ...selectedJob, assignedMspEntityId: mspEntity, status: newMsp ? 'assigned' : 'pending' });
                         } else {
                           const errData = await res.json();
@@ -385,7 +385,7 @@ export default function ServicePage() {
                   >
                     <option value="">Internal / Unassigned</option>
                     {activeMsps.map((msp: any) => (
-                      <option key={msp.entityId._id} value={msp.entityId._id}>{msp.entityId.name}</option>
+                      <option key={msp.mspEntityId._id} value={msp.mspEntityId._id}>{msp.mspEntityId.name}</option>
                     ))}
                   </select>
                 ) : (

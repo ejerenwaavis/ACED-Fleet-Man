@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { Plus, ListFilter, AlertTriangle, Upload, Barcode, FileText, Download, Trash2, ArrowUp, ArrowDown, Search, MoreVertical, TabletSmartphone, ScanBarcode, Video } from "lucide-react";
 import { PageHeader, Btn, ManifestTag, StatusPill, OilGauge, Modal, Input, Select } from "@/components/fleet/UI";
 import { exportToCsv } from "@/lib/exportCsv";
@@ -11,6 +11,14 @@ import { getApiBase, apiFetch } from "@/lib/api";
 import { useAuth } from "@/components/fleet/AuthProvider";
 
 export default function FleetRoster() {
+  return (
+    <Suspense fallback={<div className="flex h-full w-full items-center justify-center"><div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" /></div>}>
+      <FleetRosterContent />
+    </Suspense>
+  );
+}
+
+function FleetRosterContent() {
   const API_BASE = getApiBase();
   const searchParams = useSearchParams();
   const { user } = useAuth();

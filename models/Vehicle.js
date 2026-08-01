@@ -16,11 +16,7 @@ const vehicleSchema = new mongoose.Schema({
     dotInspectionUrl: { type: String },
     insuranceUrl: { type: String },
     registrationExpiry: { type: Date },
-<<<<<<< HEAD
-    lastKnownMileage: { type: Number }
-=======
     dotExpiry: { type: Date }
->>>>>>> origin/copilot/check-google-sign-in-issue
 }, { timestamps: true });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

@@ -31,15 +31,10 @@ const Device = require('./models/Device');
 const Task = require('./models/Task');
 const ChecklistItem = require('./models/ChecklistItem');
 const Entity = require('./models/Entity');
-<<<<<<< HEAD
-const WalkthroughTemplate = require('./models/WalkthroughTemplate');
-const WalkthroughRecord = require('./models/WalkthroughRecord');
-=======
 const Partnership = require('./models/Partnership');
 const ActivityLog = require('./models/ActivityLog');
 const Invite = require('./models/Invite');
 const { sendSms } = require('./lib/smsService');
->>>>>>> origin/copilot/check-google-sign-in-issue
 const QRCode = require('qrcode');
 
 // 2. const app = express()
@@ -2065,7 +2060,6 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
     }
 });
 
-<<<<<<< HEAD
 // --- Dynamic Template-based Walkthrough Routes ---
 
 // GET templates list
@@ -2277,7 +2271,11 @@ app.post('/api/walkthrough-records', async (req, res) => {
         }
 
         res.json({ success: true, record });
-=======
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // --- Service Records API ---
 app.post('/api/vehicles/:id/service-records', isAuthenticated, async (req, res) => {
@@ -2300,14 +2298,12 @@ app.post('/api/vehicles/:id/service-records', isAuthenticated, async (req, res) 
         
         await record.save();
         res.json(record);
->>>>>>> origin/copilot/check-google-sign-in-issue
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
 
-<<<<<<< HEAD
 app.get('/api/walkthrough-records', async (req, res) => {
     try {
         const { templateId, vehicleId } = req.query;
@@ -2321,7 +2317,12 @@ app.get('/api/walkthrough-records', async (req, res) => {
             filter.vehicleId = new mongoose.Types.ObjectId(vehicleId);
         }
         const records = await WalkthroughRecord.find(filter).sort('-date').limit(100);
-=======
+        res.json(records);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/vehicles/:id/service-records', isAuthenticated, async (req, res) => {
     try {
         const records = await ServiceRecord.find({
@@ -2329,7 +2330,6 @@ app.get('/api/vehicles/:id/service-records', isAuthenticated, async (req, res) =
             vehicleId: req.params.id
         }).sort({ date: -1 });
         
->>>>>>> origin/copilot/check-google-sign-in-issue
         res.json(records);
     } catch (err) {
         res.status(500).json({ error: err.message });

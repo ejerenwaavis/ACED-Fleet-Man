@@ -1,11 +1,13 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-    entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity', required: true },
-    username: { type: String, required: true, unique: true },
+    entityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Entity' }, // Optional for new users
+    googleId: { type: String, unique: true, sparse: true },
+    displayName: { type: String },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    role: { type: String, default: 'user' }
+    password: { type: String }, // Optional if using Google Auth
+    signatureFilename: { type: String },
+    role: { type: String, enum: ['admin', 'manager', 'driver', 'mechanic', 'unassigned'], default: 'unassigned' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

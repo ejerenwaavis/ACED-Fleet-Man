@@ -3,8 +3,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Btn, Modal } from './UI';
 import { Upload, FileType, Check, AlertCircle } from 'lucide-react';
-
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
+import { getApiBase, apiFetch } from '@/lib/api';
 
 interface BulkUploadModalProps {
   isOpen: boolean;
@@ -13,6 +12,7 @@ interface BulkUploadModalProps {
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
+  const API_BASE = getApiBase();
   const [activeTab, setActiveTab] = useState<'file' | 'text'>('file');
   const [rawText, setRawText] = useState('');
   const [parsedData, setParsedData] = useState<any[]>([]);
@@ -165,7 +165,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const handleConfirm = async () => {
     setIsUploading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/vehicles/bulk`, {
+      const res = await apiFetch(`/api/vehicles/bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsedData)
@@ -237,9 +237,12 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         )}
 
         {error && (
-          <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex gap-2 items-start">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>{error}</span>
+          <div 
+            className="p-3 text-sm rounded-lg flex gap-2 items-start border"
+            style={{ backgroundColor: 'var(--red-bg)', color: 'var(--red)', borderColor: 'var(--red)' }}
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="flex-1">{error}</span>
           </div>
         )}
 
@@ -251,7 +254,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
               <span className="text-xs bg-[var(--signal)] text-white px-2 py-0.5 rounded-full font-bold">{parsedData.length} records</span>
             </div>
             
-            <div className="border border-[var(--hairline)] rounded-lg overflow-hidden max-h-60 overflow-y-auto bg-white">
+            <div className="border border-[var(--hairline)] rounded-lg overflow-x-auto max-h-60 overflow-y-auto bg-white">
               <table className="w-full text-left text-xs">
                 <thead className="bg-gray-50 sticky top-0 border-b border-[var(--hairline)] shadow-sm">
                   <tr>

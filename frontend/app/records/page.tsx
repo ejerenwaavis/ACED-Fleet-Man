@@ -3,13 +3,20 @@
 import React, { useEffect, useState } from "react";
 import { Download, FileText, Filter } from "lucide-react";
 import { PageHeader, Btn, ManifestTag } from "@/components/fleet/UI";
+import { GenerateMmrModal } from "@/components/fleet/GenerateMmrModal";
+import { AutoGenerateMmrModal } from "@/components/fleet/AutoGenerateMmrModal";
+import { apiFetch } from "@/lib/api";
+import { exportToCsv } from "@/lib/exportCsv";
+import { exportToPdf } from "@/lib/exportPdf";
 
 export default function MaintenanceRecords() {
   const [records, setRecords] = useState([]);
+  const [isMmrModalOpen, setIsMmrModalOpen] = useState(false);
+  const [isAutoMmrModalOpen, setIsAutoMmrModalOpen] = useState(false);
 
   useEffect(() => {
-    const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
-    fetch(`${API_BASE}/api/mmr-data`)
+
+    apiFetch(`/api/mmr-data`)
       .then(res => res.json())
       .then(d => setRecords(d))
       .catch(console.error);
@@ -24,7 +31,26 @@ export default function MaintenanceRecords() {
         right={
           <>
             <Btn variant="ghost" icon={Filter}>Filter</Btn>
-            <Btn variant="primary" icon={Download}>Export all</Btn>
+            <Btn variant="ghost" icon={Download} onClick={() => {
+              const dataToExport = records.map((r: any) => ({
+                'Date': new Date(r.createdAt).toLocaleDateString(),
+                'Truck Number': r.vehicleId?.truckNumber || 'N/A',
+                'Route Number': r.vehicleId?.routeNumber || 'N/A',
+                'Mileage': r.mileage
+              }));
+              exportToCsv('Maintenance_Records_Export', dataToExport);
+            }}>Export CSV</Btn>
+            <Btn variant="ghost" icon={FileText} onClick={() => {
+              const dataToExport = records.map((r: any) => ({
+                'Date': new Date(r.createdAt).toLocaleDateString(),
+                'Truck Number': r.vehicleId?.truckNumber || 'N/A',
+                'Route Number': r.vehicleId?.routeNumber || 'N/A',
+                'Mileage': r.mileage
+              }));
+              exportToPdf('Maintenance Records Export', dataToExport);
+            }}>Export PDF</Btn>
+            <Btn variant="primary" icon={Download} onClick={() => setIsAutoMmrModalOpen(true)}>Auto-Generate Fleet MMRs</Btn>
+            <Btn variant="ghost" icon={Download} onClick={() => setIsMmrModalOpen(true)}>Batch Generate</Btn>
           </>
         }
       />
@@ -48,6 +74,9 @@ export default function MaintenanceRecords() {
           </div>
         ))}
       </div>
+
+      <GenerateMmrModal isOpen={isMmrModalOpen} onClose={() => setIsMmrModalOpen(false)} mode="batch" />
+      <AutoGenerateMmrModal isOpen={isAutoMmrModalOpen} onClose={() => setIsAutoMmrModalOpen(false)} />
     </div>
   );
 }

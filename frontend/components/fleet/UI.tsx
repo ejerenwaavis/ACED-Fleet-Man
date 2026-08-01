@@ -17,13 +17,34 @@ export function StatusPill({ status }: { status: string }) {
   const map: Record<string, { bg: string; fg: string }> = {
     Active: { bg: "var(--green-bg)", fg: "var(--green)" },
     "In shop": { bg: "var(--amber-bg)", fg: "var(--amber)" },
-    Down: { bg: "var(--red-bg)", fg: "var(--red)" },
+    Inactive: { bg: "var(--red-bg)", fg: "var(--red)" },
   };
   const s = map[status] || map.Active;
   return (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: s.bg, color: s.fg }}>
       <Circle className="w-2 h-2" fill={s.fg} stroke="none" />
       {status}
+    </span>
+  );
+}
+
+export function JobStatusPill({ status }: { status: string }) {
+  const map: Record<string, { bg: string; fg: string }> = {
+    pending: { bg: "#f3f4f6", fg: "#6b7280" },
+    assigned: { bg: "#e0e7ff", fg: "#4338ca" },
+    accepted: { bg: "#dbeafe", fg: "#1d4ed8" },
+    "in-progress": { bg: "var(--amber-bg)", fg: "var(--amber)" },
+    "awaiting-parts": { bg: "#ffedd5", fg: "#c2410c" },
+    completed: { bg: "var(--green-bg)", fg: "var(--green)" },
+    invoiced: { bg: "#f3e8ff", fg: "#7e22ce" },
+    closed: { bg: "#e2e8f0", fg: "#475569" },
+    cancelled: { bg: "var(--red-bg)", fg: "var(--red)" }
+  };
+  const s = map[status?.toLowerCase()] || map.pending;
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: s.bg, color: s.fg }}>
+      <Circle className="w-2 h-2" fill={s.fg} stroke="none" />
+      {status ? status.replace('-', ' ') : 'pending'}
     </span>
   );
 }
@@ -108,11 +129,11 @@ export function Btn({ children, variant = "primary", icon: Icon, className = "",
   );
 }
 
-export function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-md" }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; maxWidth?: string }) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+      <div className={`bg-[var(--surface)] border border-[var(--hairline)] rounded-xl shadow-xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[90vh]`}>
         <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
           <h2 className="font-semibold text-lg text-[var(--ink)]">{title}</h2>
           <button onClick={onClose} className="text-[var(--steel)] hover:text-[var(--ink)] transition-colors">

@@ -1,0 +1,575 @@
+{
+  "vehicles": [
+    {
+      "fleet_unit_number": "463455",
+      "vin": "1F64F5KN4L0A14416",
+      "year": 2020,
+      "make": "FORD",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 12000,
+      "unladen_weight_lbs": 9215,
+      "class": "06",
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1590 HUGHES DR CUMMING GA 30040-2913",
+      "current_registration": {
+        "license_plate_number": "MAV5694",
+        "title_number": "772212261487134",
+        "effective_date": "06/03/2026",
+        "expiration_date": "05/31/2027",
+        "total_fee": 651.64,
+        "document_link": "https://drive.google.com/file/d/1ziwqif17vMdgZJEJzSGh0NK4q8KKFS7C/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "463455",
+        "inspection_date": "09/18/2025",
+        "inspector_name": "BRUCE SMITH",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1a4TvbW4Y12jB5c2fFuAjE9Sp9L03ubk-/view?usp=drive_web"
+      },
+      "certified_weight": {
+        "ticket_number": "1331125262872",
+        "date": "09-27-25",
+        "gross_weight_lbs": 8990,
+        "document_link": "https://drive.google.com/file/d/1PxkrPws04hwcL-TYmaOL_1UFOtmCi-hj/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "463449",
+      "vin": "1F65F5KN3L0A11415",
+      "year": 2020,
+      "make": "FORD",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 11000,
+      "unladen_weight_lbs": 9830,
+      "class": "07",
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZT9722",
+        "title_number": "775734260986134",
+        "effective_date": "04/08/2026",
+        "expiration_date": "04/30/2027",
+        "total_fee": 764.09,
+        "document_link": "https://drive.google.com/file/d/1WH0vV5-ly0-Kt_caFaU5t55W0nn1J5tN/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "463449",
+        "inspection_date": "08/29/2025",
+        "inspector_name": "HOCHEATE",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1jrZRZklGmepLHQQkJL7izgnydVZKKGJT/view?usp=drive_web"
+      },
+      "certified_weight": {
+        "ticket_number": "1127826147236",
+        "date": "5-27-26",
+        "gross_weight_lbs": 10465,
+        "document_link": "https://drive.google.com/file/d/1rarQP1svrR5sJP4Rqqp8rKdfFtK15Kg8/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "440940",
+      "vin": "4UZAC3EA9JCJJ9868",
+      "year": 2018,
+      "make": "FREIGHTLINER",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 11000,
+      "unladen_weight_lbs": 8550,
+      "class": "08",
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZT9721",
+        "title_number": "775740260988134",
+        "effective_date": "04/08/2026",
+        "expiration_date": "04/30/2027",
+        "total_fee": 898.72,
+        "document_link": "https://drive.google.com/file/d/1DnCu_qzrWTOaN4iqWd7Sr3VAwzKf5Efy/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "440940",
+        "inspection_date": "08/27/2025",
+        "inspector_name": "Charles LONG",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1QhygI67vVDeTTL2hqe6XGLAqsCmM3vXw/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "411562",
+      "vin": "1F64F5KY4J0A20093",
+      "year": 2018,
+      "make": "FORD",
+      "type": "COMM TRUCK",
+      "gross_weight_lbs": 16000,
+      "unladen_weight_lbs": 8000,
+      "owner": "PRO DELIVERY INC",
+      "address": "6745 TANGLEWOOD DR BOARDMAN OH 44512-4926",
+      "current_registration": {
+        "license_plate_number": "PLA5431",
+        "title_number": "5003862093",
+        "effective_date": "02/28/2025",
+        "expiration_date": "02/28/2026",
+        "total_fee": 180.00,
+        "document_link": "https://drive.google.com/file/d/1bDineeMWb0dKg7gYyqYoNuhw0tAOyL3y/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "411562",
+        "inspection_date": "09/18/2025",
+        "inspector_name": "BRUCE SMITH",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1bIe4yFi1MUgabOMhPK63uvkwDjcusV6B/view?usp=drive_web"
+      },
+      "certified_weight": {
+        "ticket_number": "1331125262816",
+        "date": "09-26-25",
+        "gross_weight_lbs": 8940,
+        "document_link": "https://drive.google.com/file/d/1F247aJBNCT-ioO0Q0dh2zmpKognBjHAm/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "411443",
+      "vin": "4UZAANCP24CL85097",
+      "year": 2004,
+      "make": "FRHT",
+      "type": "VN",
+      "fuel": "D",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "2T7711",
+        "title_number": "778996261213134",
+        "effective_date": "05/01/2026",
+        "expiration_date": "10/31/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1OUc-Jf24v8fhIRo9GITBHMueavkOHWXh/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "411443",
+        "inspection_date": "05/29/2026",
+        "inspector_name": "James Miller",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/15syLLM2PwxQKBYl8RmGM5DbJj6CYww-5/view?usp=drive_web"
+      },
+      "certified_weight": {
+        "ticket_number": "1127825261443",
+        "date": "9-18-25",
+        "gross_weight_lbs": 9580,
+        "document_link": "https://drive.google.com/file/d/1_7ys7m-owuXC5tvnkLuRyE150lKBE8Vy/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "141420",
+      "vin": "4UZAC3EA1KCKP7753",
+      "year": 2019,
+      "make": "FRHT",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZM3379",
+        "title_number": "771286212632134",
+        "effective_date": "09/19/2025",
+        "expiration_date": "09/30/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1Q868fKZktOv3RrR-7F-AOzHzunBRVbMB/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "141420",
+        "inspection_date": "08/05/2025",
+        "inspector_name": "Charles Long",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/13M4z3nDK_M-XOiNl2f_Yh0Ti9a_EoiJY/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "202362",
+      "vin": "1FVACWDT9BDBD8086",
+      "year": 2011,
+      "make": "FRHT",
+      "type": "TK",
+      "fuel": "D",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZL8219",
+        "title_number": "775663212289061",
+        "effective_date": "09/19/2025",
+        "expiration_date": "09/30/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1S_lFvoBVpA8732T7Nj7P_jJbU1TPM0eU/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "202362",
+        "inspection_date": "08/27/2025",
+        "inspector_name": "Charles Long",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1fNPRdLh9FID6a7GMHWEvW2luJ3iyYAKb/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "467974",
+      "vin": "1F65F5KY4D0A10091",
+      "year": 2013,
+      "make": "FORD",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 15000,
+      "unladen_weight_lbs": 5874,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZL8209",
+        "title_number": "773999212842134",
+        "effective_date": "09/19/2025",
+        "expiration_date": "08/31/2026",
+        "total_fee": 383.00,
+        "document_link": "https://drive.google.com/file/d/1o2BXtdm-NjAqMrdfOK-1FGU3GV8FvqOc/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "67774",
+        "inspection_date": "08/27/2025",
+        "inspector_name": "Charles Love",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1yjeDPCY-yM6xAfFAcjrvRUr2DJgtWzg4/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "402385",
+      "vin": "1F65F5KY2H0A08149",
+      "year": 2017,
+      "make": "FORD",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZM3388",
+        "title_number": "772881212746134",
+        "effective_date": "10/03/2025",
+        "expiration_date": "10/31/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1snl80rjynUOPjEs-O3XOmxiZYu4GQlAW/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "402385",
+        "inspection_date": "09/24/2025",
+        "inspector_name": "BRUCE SMITH",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1UuL4qD6W8_shktgQelDllr7PFrvFqtEt/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "403866",
+      "vin": "4UZASFAC3YCG63914",
+      "year": 2000,
+      "make": "FRHT",
+      "type": "TK",
+      "fuel": "D",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZL8222",
+        "title_number": "774002212845134",
+        "effective_date": "10/03/2025",
+        "expiration_date": "09/30/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1do1ZNiuim80e5R_Cg1-u2BIFDEQZLBzx/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "403866",
+        "inspection_date": "09/12/2025",
+        "inspector_name": "BRUCE SMITH",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/15Ldj9MjbbC4EeaoxDvqUtEGCMprFGtWU/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "310247",
+      "vin": "JALC4W167A7000219",
+      "year": 2010,
+      "make": "ISU",
+      "type": "TK",
+      "fuel": "D",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZT6082",
+        "title_number": "775660212282061",
+        "effective_date": "09/19/2025",
+        "expiration_date": "06/30/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1xvtLC2K0lxgnm_DNSDJoMBySCS-k92EN/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "310247",
+        "inspection_date": "08/27/2025",
+        "inspector_name": "Charles Loney",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/15wh8g6jY5PdIfRr0GM1Bx4zkAWnmyqZq/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "405465",
+      "vin": "1F65F5KY3H0A13781",
+      "year": 2017,
+      "make": "FORD",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 26000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZM6448",
+        "title_number": "770995243193909",
+        "effective_date": "09/19/2025",
+        "expiration_date": "09/30/2026",
+        "total_fee": 720.00,
+        "document_link": "https://drive.google.com/file/d/1KwUBHPV2OjG4fjf-lvldcZkbEhfbXHTo/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "405465",
+        "inspection_date": "09/18/2025",
+        "inspector_name": "BRUCE SMITH",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1e2bHK-CMqBHf8B_JUNC-YgOb725SL8pg/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "419016",
+      "vin": "4UZAC3EA9KCKT6920",
+      "year": 2019,
+      "make": "FRHT",
+      "type": "VN",
+      "fuel": "G",
+      "gross_weight_lbs": 23000,
+      "owner": "CARE ELITES DELIVERY CORP",
+      "address": "11 SWIFTCREEK CT GREENSBORO NC 27407-6108",
+      "current_registration": {
+        "license_plate_number": "ZM7578",
+        "title_number": "3331123053262",
+        "effective_date": "10/03/2025",
+        "expiration_date": "02/28/2026",
+        "total_fee": 637.50,
+        "document_link": "https://drive.google.com/file/d/1AILezriqYC6PLnLw3D_DrEjezXNKyqNN/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "419016",
+        "inspection_date": "08/21/2025",
+        "inspector_name": "Charles LONG",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1aEXPvhlgPo2WY5Y7GSCkEqU1JM5MmWKW/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "86916",
+      "vin": "4UZAARDU8CCBW1281",
+      "year": 2012,
+      "make": "FRHT",
+      "type": "VN",
+      "fuel": "D",
+      "gross_weight_lbs": 23000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZM6465",
+        "title_number": "776718222786134",
+        "effective_date": "10/03/2025",
+        "expiration_date": "10/31/2026",
+        "total_fee": 637.50,
+        "document_link": "https://drive.google.com/file/d/1n8Zl6f5SCaeR3CbLjBG8D54oukPS7Pzv/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "86916",
+        "inspection_date": "08/27/2025",
+        "inspector_name": "Charles Looke",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1LsqR_EGv3e0lzN0BRCobSsVEkL8KQXAp/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "436130",
+      "vin": "1FTBR1C85LKA68048",
+      "year": 2020,
+      "make": "FORD",
+      "type": "VN",
+      "fuel": "G",
+      "gross_weight_lbs": 10000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZL8190",
+        "title_number": "775024212929134",
+        "effective_date": "08/27/2025",
+        "expiration_date": "08/31/2026",
+        "total_fee": 160.00,
+        "document_link": "https://drive.google.com/file/d/1Lgp9smM7IjI-YZRHHt472yt8BniE24NK/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "436130",
+        "inspection_date": "08/27/2025",
+        "inspector_name": "Chauler bend",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1G_snkZY4c9n0mZZ9R5aujqHSSkNBNaKR/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "87491",
+      "vin": "4UZAARDU1ECGC6756",
+      "year": 2014,
+      "make": "FRHT",
+      "type": "TK",
+      "fuel": "D",
+      "gross_weight_lbs": 23000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZS6162",
+        "title_number": "771011243191909",
+        "effective_date": "04/01/2026",
+        "expiration_date": "02/28/2027",
+        "total_fee": 637.50,
+        "document_link": "https://drive.google.com/file/d/18JJfqF7-JSHlTFccJh7LTAa2YosgNFKK/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "87491",
+        "inspection_date": "08/27/2025",
+        "inspector_name": "Chanles Long",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1P9UsfDo7chKx6Je9Ugfbcyp9C8oQGw-3/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "515729",
+      "year": 2026,
+      "model": "26FT SAD MEDIUM VAN",
+      "current_registration": {
+        "license_plate_number": "3811627",
+        "license_state": "IN",
+        "expiration_date": "06/30/2026",
+        "document_link": "https://drive.google.com/file/d/1kJDlHUTvmURk6tVitB5jdymHsdQNrHsj/view?usp=drive_web"
+      },
+      "rental_agreement": {
+        "agreement_number": "12207577",
+        "status": "NEW",
+        "customer": "CARE ELITES DELIVERY",
+        "driver": "LENARD LYNN",
+        "pickup_date": "09/27/25 12:14 PM",
+        "expected_drop_off": "12/31/25 12:14 PM"
+      }
+    },
+    {
+      "fleet_unit_number": "520154",
+      "model": "16FT SAG LIGHT HICUBE",
+      "current_registration": {
+        "license_plate_number": "3459377",
+        "license_state": "IN",
+        "expiration_date": "01/31/2026",
+        "document_link": "https://drive.google.com/file/d/1VIaxV5_s78w5MgWWNN9iFosI6lOXxQ0p/view?usp=drive_web"
+      },
+      "rental_agreement": {
+        "agreement_number": "12219013",
+        "status": "OPEN",
+        "customer": "CARE ELITES DELIVERY",
+        "driver": "PAUL MULLINS",
+        "pickup_date": "09/29/25 02:27 PM",
+        "expected_drop_off": "10/06/25 02:27 PM"
+      }
+    },
+    {
+      "fleet_unit_number": "412390",
+      "vin": "4UZAC3EA2JCKF3200",
+      "year": 2018,
+      "make": "FRHT",
+      "type": "TK",
+      "fuel": "G",
+      "current_registration": {
+        "title_number": "772841261106010",
+        "receipt_date": "04/20/2026",
+        "total_fee": 66.75,
+        "owner": "BUSH TRUCK LEASING INC",
+        "document_link": "https://drive.google.com/file/d/1AXfDvjCZ8FwhEqLhECo4-t_evG27IADI/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "412390",
+        "inspection_date": "05/27/2025",
+        "inspector_name": "Charles LORES",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1aoTBPLHLrvDH0GOrp5AXA2QyQo6KVhwB/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "96475",
+      "vin": "1HTMGABM1YA024383",
+      "year": 2000,
+      "make": "INTL",
+      "type": "TK",
+      "fuel": "D",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZM3376",
+        "title_number": "770755212586134",
+        "effective_date": "09/19/2025",
+        "expiration_date": "09/30/2025",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1qs4Z2tHTCe7mdF2rdetk46loS6NQ7jVF/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "317183",
+      "vin": "1F66F5KY8E0A14487",
+      "year": 2014,
+      "make": "FORD",
+      "type": "TK",
+      "fuel": "G",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZL8220",
+        "title_number": "774001212846134",
+        "effective_date": "04/01/2026",
+        "expiration_date": "09/30/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1O2yEtg5LeWZfcElK6iizfRKzLJ3ylHrD/view?usp=drive_web"
+      }
+    },
+    {
+      "fleet_unit_number": "415358",
+      "vin": "4UZAANCPX4CL86059",
+      "year": 2004,
+      "make": "FRHT",
+      "type": "VN",
+      "fuel": "D",
+      "gross_weight_lbs": 20000,
+      "owner": "CARE ELITES DELIVERY CORPORATION",
+      "address": "1544 OLD GREENSBORO RD KERNERSVILLE NC 27284-8435",
+      "current_registration": {
+        "license_plate_number": "ZL8215",
+        "title_number": "775666212286061",
+        "effective_date": "09/19/2025",
+        "expiration_date": "09/30/2026",
+        "total_fee": 555.00,
+        "document_link": "https://drive.google.com/file/d/1oXDcg8hhpU3Lbpbwk1gWHaL7hyVVsK1g/view?usp=drive_web"
+      },
+      "current_fai": {
+        "report_number": "415358",
+        "inspection_date": "09/18/2025",
+        "inspector_name": "BRUCE SMITH",
+        "status": "PASSED",
+        "document_link": "https://drive.google.com/file/d/1SFZ3wBTgdVphKbp8zAzvvmbV7SkEl_We/view?usp=drive_web"
+  }
+}
+]
+
+}

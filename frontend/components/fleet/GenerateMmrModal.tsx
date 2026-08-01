@@ -30,6 +30,8 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
   const [companyName, setCompanyName] = useState('ACED Fleet');
   const [domicile, setDomicile] = useState('');
   const [maintenanceNotes, setMaintenanceNotes] = useState('');
+  const [sendToEmail, setSendToEmail] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Batch mode state
   const [activeTab, setActiveTab] = useState<'file' | 'text'>('file');
@@ -44,6 +46,8 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
 
   useEffect(() => {
     if (isOpen) {
+      setSuccessMessage(null);
+      setError(null);
       apiFetch('/api/auth/me')
         .then(res => res.json())
         .then(data => {
@@ -105,7 +109,8 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
         companyName,
         domicile,
         applySignature: applySignature === 'true',
-        maintenance
+        maintenance,
+        sendToEmail
       };
 
       const res = await apiFetch('/api/generate', {
@@ -115,21 +120,27 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to generate MMR');
+        let errMsg = 'Failed to generate MMR';
+        try { const errData = await res.json(); errMsg = errData.error || errMsg; } catch(e) {}
+        throw new Error(errMsg);
       }
 
-      // Trigger download
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `MMR_${payload.unit}_${recordMonth}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      
-      onClose();
+      if (sendToEmail) {
+        const data = await res.json();
+        setSuccessMessage(data.message || 'Email sent successfully!');
+        setTimeout(() => { onClose(); }, 2000);
+      } else {
+        // Trigger download
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MMR_${payload.unit}_${recordMonth}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        onClose();
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -166,28 +177,34 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
       formData.append('companyName', companyName);
       formData.append('domicile', domicile);
       formData.append('applySignature', applySignature);
+      if (sendToEmail) formData.append('sendToEmail', sendToEmail);
 
-      // we use fetch directly instead of apiFetch because we want to omit Content-Type header so the browser sets the multipart boundary. 
-      // wait, apiFetch in lib/api likely doesn't hardcode it if body is FormData, let's use fetch directly with credentials.
       const res = await fetch(`${API_BASE}/api/generate-batch`, {
         method: 'POST',
         body: formData,
       });
 
       if (!res.ok) {
-        throw new Error('Failed to generate batch MMRs');
+        let errMsg = 'Failed to generate batch MMRs';
+        try { const errData = await res.json(); errMsg = errData.error || errMsg; } catch(e) {}
+        throw new Error(errMsg);
       }
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `MMR_Batch.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      
-      onClose();
+      if (sendToEmail) {
+        const data = await res.json();
+        setSuccessMessage(data.message || 'Batch emails sent successfully!');
+        setTimeout(() => { onClose(); }, 2000);
+      } else {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MMR_Batch.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        onClose();
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -212,6 +229,12 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
             <span className="flex-1">{error}</span>
           </div>
         )}
+        {successMessage && (
+          <div className="p-3 text-sm rounded-lg flex gap-2 items-start border bg-[var(--green-bg)] text-[var(--green)] border-green-200">
+            <Check className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="flex-1">{successMessage}</span>
+          </div>
+        )}
 
         {mode === 'single' ? (
           <form id="single-mmr-form" onSubmit={handleSingleGenerate}>
@@ -224,6 +247,9 @@ export function GenerateMmrModal({ isOpen, onClose, mode, defaultVehicle }: Gene
               <Input label="Domicile" value={domicile} onChange={(e: any) => setDomicile(e.target.value)} />
             </div>
             <TextArea label="Maintenance Notes (Optional)" value={maintenanceNotes} onChange={(e: any) => setMaintenanceNotes(e.target.value)} placeholder="E.g. Oil change, replaced tires..." />
+            <div className="mt-4">
+              <Input label="Send to Email (Optional)" type="email" value={sendToEmail} onChange={(e: any) => setSendToEmail(e.target.value)} placeholder="admin@example.com (leaves blank to download locally)" />
+            </div>
             
             <div className="mt-4 pt-4 border-t border-[var(--hairline)]">
               <div className="flex justify-between items-center mb-2">

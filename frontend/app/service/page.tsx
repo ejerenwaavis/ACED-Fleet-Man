@@ -362,7 +362,7 @@ export default function ServicePage() {
                     onChange={async (e) => {
                       const newMsp = e.target.value;
                       try {
-                        const res = await apiFetch(`/api/maintenance/${selectedJob._id}`, {
+                        const res = await apiFetch(`/api/maintenance-requests/${selectedJob._id}/reassign-entity`, {
                           method: 'PATCH',
                           body: JSON.stringify({ assignedMspEntityId: newMsp || null })
                         });
@@ -370,9 +370,16 @@ export default function ServicePage() {
                           fetchData();
                           const mspEntity = newMsp ? activeMsps.find(m => m.entityId._id === newMsp)?.entityId : null;
                           setSelectedJob({ ...selectedJob, assignedMspEntityId: mspEntity, status: newMsp ? 'assigned' : 'pending' });
+                        } else {
+                          const errData = await res.json();
+                          alert(errData.error || 'Failed to reassign entity.');
+                          // Reset the dropdown to the original value
+                          const selectEl = e.target;
+                          selectEl.value = selectedJob.assignedMspEntityId?._id || "";
                         }
                       } catch (err) {
                         console.error(err);
+                        alert('An error occurred while reassigning the job.');
                       }
                     }}
                   >

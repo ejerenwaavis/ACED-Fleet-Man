@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const { sendMmrEmail } = require('./services/email');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const session = require('express-session');
@@ -24,6 +25,7 @@ const EveningWalkthrough = require('./models/EveningWalkthrough');
 const WeekendWalkthrough = require('./models/WeekendWalkthrough');
 const WalkthroughTemplate = require('./models/WalkthroughTemplate');
 const WalkthroughRecord = require('./models/WalkthroughRecord');
+const ServiceRecord = require('./models/ServiceRecord');
 const Vehicle = require('./models/Vehicle');
 const Device = require('./models/Device');
 const Task = require('./models/Task');
@@ -2055,6 +2057,47 @@ app.post('/api/walkthrough/weekend', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).send('Error submitting weekend walkthrough');
+    }
+});
+
+
+// --- Service Records API ---
+app.post('/api/vehicles/:id/service-records', isAuthenticated, async (req, res) => {
+    try {
+        const { date, maintenanceType, details, performedBy, mileageAtService } = req.body;
+        
+        const vehicle = await Vehicle.findOne({ _id: req.params.id, entityId: req.user.entityId });
+        if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+
+        const record = new ServiceRecord({
+            entityId: req.user.entityId,
+            vehicleId: vehicle._id,
+            date,
+            maintenanceType,
+            details,
+            performedBy,
+            mileageAtService,
+            loggedByUserId: req.user._id
+        });
+        
+        await record.save();
+        res.json(record);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/vehicles/:id/service-records', isAuthenticated, async (req, res) => {
+    try {
+        const records = await ServiceRecord.find({
+            entityId: req.user.entityId,
+            vehicleId: req.params.id
+        }).sort({ date: -1 });
+        
+        res.json(records);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

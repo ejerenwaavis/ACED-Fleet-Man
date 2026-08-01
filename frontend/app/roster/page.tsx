@@ -25,6 +25,10 @@ export default function FleetRoster() {
   const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [serviceRecords, setServiceRecords] = useState<any[]>([]);
+  const [showAddRecordForm, setShowAddRecordForm] = useState(false);
+  const [newRecord, setNewRecord] = useState({ date: '', maintenanceType: '', details: '', performedBy: '', mileageAtService: '' });
+  const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
 
   const handleSelect = (id: string, checked: boolean, shiftKey: boolean, list: any[]) => {
     if (shiftKey && lastSelectedId) {

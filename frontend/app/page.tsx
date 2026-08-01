@@ -2,20 +2,44 @@
 
 import React, { useEffect, useState } from "react";
 import { Truck, Wrench, ShieldCheck, Moon, CalendarCheck, Plus, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
-import { PageHeader, Btn, StatTag, ManifestTag, Modal, Input, Select, TextArea } from "@/components/fleet/UI";
+import { PageHeader, Btn, StatTag, ManifestTag } from "@/components/fleet/UI";
+import { NewMaintenanceRequestModal } from "@/components/fleet/NewMaintenanceRequestModal";
 import { useRouter } from "next/navigation";
-
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/components/fleet/AuthProvider";
 
 export default function Dashboard() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [activeMsps, setActiveMsps] = useState<any[]>([]);
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user?.role === 'mechanic') {
+      router.replace('/mechanic');
+    }
+  }, [user, authLoading, router]);
 
   const fetchData = () => {
-    fetch(`${API_BASE}/api/dashboard-data`)
+    apiFetch(`/api/dashboard-data`)
       .then(res => res.json())
       .then(d => setData(d))
+      .catch(console.error);
+      
+    apiFetch(`/api/walkthrough-templates`)
+      .then(res => res.json())
+      .then(res => {
+        if(Array.isArray(res)) setTemplates(res);
+      })
+      .catch(console.error);
+
+    apiFetch(`/api/dsp/active-msps`)
+      .then(res => res.json())
+      .then(res => {
+        if(Array.isArray(res)) setActiveMsps(res);
+      })
       .catch(console.error);
   };
 
@@ -23,24 +47,7 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  const handleMaintenanceSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    
-    try {
-      await fetch(`${API_BASE}/api/maintenance`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json'
-        },
-        body: formData
-      });
-      setIsMaintenanceOpen(false);
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
   if (!data) {
     return <div className="flex items-center justify-center py-20 text-[var(--steel)]">Loading dashboard...</div>;
@@ -63,30 +70,22 @@ export default function Dashboard() {
         title="Fleet Overview"
         subtitle="Current status of operations"
         right={
-          <>
-            <Btn variant="ghost" icon={Moon} onClick={() => router.push("/evening")}>Evening walkthrough</Btn>
-            <Btn variant="ghost" icon={CalendarCheck} onClick={() => router.push("/weekend")}>Weekend inspection</Btn>
+          <div className="flex gap-2 flex-wrap justify-end">
+            {templates.map(tmpl => (
+              <Btn key={tmpl._id} variant="ghost" icon={FileText} onClick={() => router.push(`/walkthrough?id=${tmpl._id}`)}>{tmpl.name}</Btn>
+            ))}
             <Btn variant="primary" icon={Plus} onClick={() => setIsMaintenanceOpen(true)}>New maintenance request</Btn>
-          </>
+          </div>
         }
       />
 
-      <Modal isOpen={isMaintenanceOpen} onClose={() => setIsMaintenanceOpen(false)} title="New Maintenance Request">
-        <form onSubmit={handleMaintenanceSubmit}>
-          <Input label="Title" name="title" required placeholder="Brief issue summary" />
-          <Select label="Vehicle" name="vehicleId" required options={vehicles.map((v: any) => ({ label: `${v.truckNumber} - ${v.makeModel || 'Unknown'}`, value: v._id }))} />
-          <Select label="Priority" name="priority" required options={[
-            { label: 'Low', value: 'Low' },
-            { label: 'Medium', value: 'Medium' },
-            { label: 'High', value: 'High' }
-          ]} />
-          <TextArea label="Description" name="description" required placeholder="Detailed description of the issue" />
-          <div className="flex justify-end gap-2 mt-6">
-            <Btn type="button" variant="ghost" onClick={() => setIsMaintenanceOpen(false)}>Cancel</Btn>
-            <Btn type="submit" variant="primary">Submit Request</Btn>
-          </div>
-        </form>
-      </Modal>
+      <NewMaintenanceRequestModal 
+        isOpen={isMaintenanceOpen} 
+        onClose={() => setIsMaintenanceOpen(false)} 
+        vehicles={vehicles} 
+        activeMsps={activeMsps} 
+        onSuccess={fetchData} 
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatTag label="Total vehicles" value={totalVehicles} accent="var(--ink)" icon={Truck} />

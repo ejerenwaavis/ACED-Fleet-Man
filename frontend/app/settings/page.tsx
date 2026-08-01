@@ -1,172 +1,312 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Plus, Trash2, Edit2 } from "lucide-react";
+import { Settings as SettingsIcon, Plus, Trash2, Edit2, Users, Check, X as XIcon, Shield, Download, Database } from "lucide-react";
 import { PageHeader, Btn, Modal, Input, Select } from "@/components/fleet/UI";
-
-const API_BASE = typeof window !== 'undefined' && window.location.port === '3001' ? 'http://127.0.0.1:3000' : '';
+import { useAuth } from "@/components/fleet/AuthProvider";
+import { getApiBase, apiFetch } from "@/lib/api";
+import Link from 'next/link';
 
 export default function Settings() {
-  const [items, setItems] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const { user } = useAuth();
+  const API_BASE = getApiBase();
+  const [requests, setRequests] = useState<any[]>([]);
+  const [fleetUsers, setFleetUsers] = useState<any[]>([]);
+  
+  // Invite State
+  const [inviteRole, setInviteRole] = useState('driver');
+  const [invitePhone, setInvitePhone] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResult, setInviteResult] = useState<any>(null);
 
-  const fetchItems = () => {
-    fetch(`${API_BASE}/api/checklist-items`)
+  // Export State
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const fetchRequests = () => {
+    apiFetch(`/api/onboarding/requests`)
       .then(res => res.json())
-      .then(data => setItems(data))
+      .then(data => {
+         if(Array.isArray(data)) setRequests(data);
+      })
+      .catch(console.error);
+  };
+
+
+
+  const fetchUsers = () => {
+    apiFetch(`/api/users`)
+      .then(res => res.json())
+      .then(data => {
+        if(Array.isArray(data)) setFleetUsers(data);
+      })
       .catch(console.error);
   };
 
   useEffect(() => {
-    fetchItems();
-  }, []);
+    if (user?.role === 'admin' || user?.role === 'manager') {
+      fetchRequests();
+      fetchUsers();
+    }
+  }, [user]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const data = {
-      name: formData.get('name'),
-      eveningWalkthrough: formData.get('eveningWalkthrough') === 'true',
-      weekendWalkthrough: formData.get('weekendWalkthrough') === 'true',
-    };
-
-    const url = editingItem ? `${API_BASE}/api/checklist-items/${editingItem._id}` : `${API_BASE}/api/checklist-items`;
-    const method = editingItem ? 'PUT' : 'POST';
-
+  const handleResolveRequest = async (requestId: string, action: 'approve' | 'reject') => {
+    if (!confirm(`Are you sure you want to ${action} this request?`)) return;
     try {
-      await fetch(url, {
-        method,
+      await apiFetch(`/api/onboarding/resolve`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ requestId, action })
       });
-      setIsModalOpen(false);
-      setEditingItem(null);
-      fetchItems();
+      fetchRequests();
+      fetchUsers();
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this checklist item?')) return;
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    if (newRole === 'remove' && !confirm('Are you sure you want to remove this user from the fleet?')) return;
     try {
-      await fetch(`${API_BASE}/api/checklist-items/${id}`, { method: 'DELETE' });
-      fetchItems();
+      await apiFetch(`/api/users/${userId}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole })
+      });
+      fetchUsers();
     } catch (err) {
       console.error(err);
     }
   };
 
-  const openEdit = (item: any) => {
-    setEditingItem(item);
-    setIsModalOpen(true);
+  const handleGenerateInvite = async () => {
+    setInviteLoading(true);
+    setInviteResult(null);
+    try {
+      const res = await apiFetch(`/api/invites/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: inviteRole, phone: invitePhone })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setInviteResult(data);
+      setInvitePhone('');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleExportBulk = async () => {
+    setExportLoading(true);
+    try {
+      const res = await apiFetch(`/api/export/bulk-backup`);
+      if (!res.ok) throw new Error('Failed to generate export');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aced_fleet_backup_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto">
-      <PageHeader
-        eyebrow="Configuration"
-        title="Settings"
-        right={
-          <Btn variant="primary" icon={Plus} onClick={() => { setEditingItem(null); setIsModalOpen(true); }}>
-            Add Checklist Item
+      <div className="flex items-center justify-between mb-6">
+        <PageHeader eyebrow="Configuration" title="Settings" />
+        <div className="flex items-center gap-3">
+          <Link href="/settings/walkthroughs">
+            <Btn variant="primary">Walkthrough Templates</Btn>
+          </Link>
+          <Btn 
+            variant="ghost" 
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200"
+            onClick={async () => {
+              await apiFetch(`/api/auth/logout`, { method: 'POST' });
+              window.location.href = '/login';
+            }}
+          >
+            Logout
           </Btn>
-        }
-      />
+        </div>
+      </div>
 
-      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6">
+      {requests.length > 0 && (
+        <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto mt-6 mb-8">
+          <div className="p-5 border-b border-[var(--hairline)] bg-amber-50/30">
+            <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
+              <Users className="w-5 h-5 text-amber-600" /> Pending Team Requests
+            </h3>
+            <p className="text-sm text-[var(--steel-light)] mt-1">These users have requested to join your fleet. Review and approve to grant them driver access.</p>
+          </div>
+          <table className="w-full text-left border-collapse">
+            <tbody className="divide-y divide-[var(--hairline)]">
+              {requests.map(req => (
+                <tr key={req._id} className="hover:bg-gray-50/50">
+                  <td className="px-5 py-4">
+                    <div className="font-semibold text-[var(--ink)]">{req.userId?.displayName || 'Unknown User'}</div>
+                    <div className="text-xs text-[var(--steel)]">{req.userId?.email}</div>
+                  </td>
+                  <td className="px-5 py-4 text-right flex justify-end gap-2">
+                    <Btn variant="primary" icon={Check} onClick={() => handleResolveRequest(req._id, 'approve')}>Approve</Btn>
+                    <Btn variant="ghost" icon={XIcon} onClick={() => handleResolveRequest(req._id, 'reject')}>Deny</Btn>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto mt-6 mb-8">
         <div className="p-5 border-b border-[var(--hairline)]">
           <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
-            <SettingsIcon className="w-5 h-5 text-[var(--steel)]" /> Walkthrough Checklist Manager
+            <Shield className="w-5 h-5 text-[var(--signal)]" /> Team Members
           </h3>
-          <p className="text-sm text-[var(--steel-light)] mt-1">Configure the items that appear in the evening and weekend walkthroughs.</p>
+          <p className="text-sm text-[var(--steel-light)] mt-1">Manage roles and access for members of your fleet.</p>
         </div>
-
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[var(--canvas)] border-b border-[var(--hairline)]">
-              <th className="px-5 py-3 text-xs font-semibold text-[var(--steel-light)] uppercase tracking-wider">Item Name</th>
-              <th className="px-5 py-3 text-xs font-semibold text-[var(--steel-light)] uppercase tracking-wider text-center">Evening Walkthrough</th>
-              <th className="px-5 py-3 text-xs font-semibold text-[var(--steel-light)] uppercase tracking-wider text-center">Weekend Walkthrough</th>
+              <th className="px-5 py-3 text-xs font-semibold text-[var(--steel-light)] uppercase tracking-wider">User</th>
+              <th className="px-5 py-3 text-xs font-semibold text-[var(--steel-light)] uppercase tracking-wider">Role</th>
               <th className="px-5 py-3 text-xs font-semibold text-[var(--steel-light)] uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--hairline)]">
-            {items.map(item => (
-              <tr key={item._id} className="hover:bg-gray-50/50">
-                <td className="px-5 py-4 font-semibold text-[var(--ink)]">{item.name}</td>
-                <td className="px-5 py-4 text-center">
-                  {item.eveningWalkthrough ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-700">Active</span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-500">Disabled</span>
-                  )}
+            {fleetUsers.map(member => (
+              <tr key={member._id} className="hover:bg-gray-50/50">
+                <td className="px-5 py-4">
+                  <div className="font-semibold text-[var(--ink)]">{member.displayName || 'Unknown User'}</div>
+                  <div className="text-xs text-[var(--steel)]">{member.email}</div>
                 </td>
-                <td className="px-5 py-4 text-center">
-                  {item.weekendWalkthrough ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-700">Active</span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-500">Disabled</span>
-                  )}
+                <td className="px-5 py-4">
+                  <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold uppercase tracking-wider
+                    ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 
+                      member.role === 'manager' ? 'bg-blue-100 text-blue-700' : 
+                      'bg-gray-100 text-gray-700'}`}>
+                    {member.role}
+                  </span>
                 </td>
-                <td className="px-5 py-4 text-right flex justify-end gap-2">
-                  <button onClick={() => openEdit(item)} className="p-2 text-[var(--steel)] hover:text-[var(--signal)] rounded-lg hover:bg-[var(--canvas)] transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDelete(item._id)} className="p-2 text-[var(--steel)] hover:text-red-500 rounded-lg hover:bg-[var(--canvas)] transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <td className="px-5 py-4 text-right">
+                  {user?.role === 'admin' && member._id !== user?._id && (
+                    <select 
+                      className="text-sm border border-[var(--hairline)] rounded p-1 bg-white"
+                      value={member.role}
+                      onChange={(e) => handleRoleChange(member._id, e.target.value)}
+                    >
+                      <option value="driver">Driver</option>
+                      <option value="manager">Manager</option>
+                      <option value="admin">Admin</option>
+                      <option value="remove" className="text-red-600 font-bold">Remove from Fleet</option>
+                    </select>
+                  )}
+                  {user?.role === 'manager' && member.role === 'driver' && (
+                    <select 
+                      className="text-sm border border-[var(--hairline)] rounded p-1 bg-white"
+                      value={member.role}
+                      onChange={(e) => handleRoleChange(member._id, e.target.value)}
+                    >
+                      <option value="driver">Driver</option>
+                      <option value="remove" className="text-red-600 font-bold">Remove from Fleet</option>
+                    </select>
+                  )}
                 </td>
               </tr>
             ))}
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-[var(--steel)] text-sm">
-                  No checklist items configured yet.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingItem ? 'Edit Checklist Item' : 'Add Checklist Item'}>
-        <form onSubmit={handleSubmit}>
-          <Input 
-            label="Item Name" 
-            name="name" 
-            defaultValue={editingItem?.name} 
-            placeholder="e.g. Fire Extinguisher" 
-            required 
-          />
-          
-          <Select 
-            label="Evening Walkthrough" 
-            name="eveningWalkthrough" 
-            defaultValue={editingItem?.eveningWalkthrough ? 'true' : 'false'}
-            options={[
-              { label: 'Yes - Include in Evening', value: 'true' },
-              { label: 'No - Skip', value: 'false' }
-            ]} 
-          />
-
-          <Select 
-            label="Weekend Walkthrough" 
-            name="weekendWalkthrough" 
-            defaultValue={editingItem?.weekendWalkthrough ? 'true' : 'false'}
-            options={[
-              { label: 'Yes - Include in Weekend', value: 'true' },
-              { label: 'No - Skip', value: 'false' }
-            ]} 
-          />
-
-          <div className="flex justify-end gap-2 mt-6">
-            <Btn type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Btn>
-            <Btn type="submit" variant="primary">Save Configuration</Btn>
+      <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-x-auto mt-6 mb-8">
+        <div className="p-5 border-b border-[var(--hairline)]">
+          <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
+            <Plus className="w-5 h-5 text-[var(--signal)]" /> Invite Team Members
+          </h3>
+          <p className="text-sm text-[var(--steel-light)] mt-1">Generate an invite link or send an SMS invite to a new member.</p>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-[var(--ink)] mb-1">Role</label>
+              <select 
+                className="w-full h-10 border border-[var(--hairline)] rounded-lg px-3 bg-white"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+              >
+                <option value="driver">Driver</option>
+                <option value="mechanic">Mechanic</option>
+                <option value="manager">Manager</option>
+                {user?.role === 'admin' && <option value="admin">Admin</option>}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-[var(--ink)] mb-1">Phone Number (Optional)</label>
+              <Input 
+                placeholder="e.g. +1234567890" 
+                value={invitePhone} 
+                onChange={(e: any) => setInvitePhone(e.target.value)}
+              />
+            </div>
           </div>
-        </form>
-      </Modal>
+          
+          <Btn variant="primary" onClick={handleGenerateInvite} disabled={inviteLoading}>
+            {inviteLoading ? 'Generating...' : (invitePhone ? 'Send SMS Invite' : 'Generate Invite Link')}
+          </Btn>
+
+          {inviteResult && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="font-semibold text-green-800 mb-2">Invite Generated Successfully!</div>
+              <p className="text-sm text-green-700 mb-2">
+                Share this link with the user to allow them to join as a {inviteRole}:
+              </p>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={inviteResult.inviteLink} 
+                  className="flex-1 p-2 text-sm border border-green-300 rounded bg-white"
+                />
+                <Btn variant="outline" onClick={() => navigator.clipboard.writeText(inviteResult.inviteLink)}>
+                  Copy
+                </Btn>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {(user?.role === 'admin' || user?.role === 'manager') && (
+        <div className="bg-[var(--surface)] border border-[var(--hairline)] rounded-xl overflow-hidden mt-6 mb-8">
+          <div className="p-5 border-b border-[var(--hairline)]">
+            <h3 className="font-semibold text-lg text-[var(--ink)] flex items-center gap-2">
+              <Database className="w-5 h-5 text-[var(--brand)]" /> Data Export & Backups
+            </h3>
+            <p className="text-sm text-[var(--steel-light)] mt-1">
+              Download a comprehensive backup of all your fleet data. This includes Vehicles, Devices, Maintenance Records, Walkthroughs, and Users.
+            </p>
+          </div>
+          <div className="p-5 flex items-center justify-between bg-gray-50/50">
+            <div>
+              <div className="font-semibold text-[var(--ink)]">Full System Backup</div>
+              <div className="text-xs text-[var(--steel)] mt-0.5">Generates a ZIP file containing multiple CSVs</div>
+            </div>
+            <Btn variant="primary" icon={Download} onClick={handleExportBulk} disabled={exportLoading}>
+              {exportLoading ? 'Packaging Data...' : 'Export All Data (ZIP)'}
+            </Btn>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

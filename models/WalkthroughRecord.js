@@ -7,9 +7,9 @@ const walkthroughRecordSchema = new mongoose.Schema({
     reporterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     date: { type: Date, default: Date.now },
     mileage: { type: Number },
-    data: { type: mongoose.Schema.Types.Mixed, default: {} },
+    data: { type: mongoose.Schema.Types.Mixed, default: {} }, // Stores key-value mapping of template fields
     maintenanceNote: { type: String },
-    status: { type: String, enum: ['draft', 'completed'], default: 'draft' }
+    status: { type: String, enum: ['draft', 'completed'], default: 'completed' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('WalkthroughRecord', walkthroughRecordSchema);

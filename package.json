@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "concurrently \"nodemon app.js\" \"cd frontend && npx next dev -p 3001\"",
-    "build:frontend": "cd frontend && npm run build && xcopy /E /I /Y out ..\\public",
+    "build:frontend": "cd frontend && npm run build && cp -r out/. ../public/",
     "build": "npm run build:frontend"
   },
   "keywords": [],

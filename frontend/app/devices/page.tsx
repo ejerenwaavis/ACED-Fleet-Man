@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { PageHeader, Btn, Modal, Input, Select } from '@/components/fleet/UI';
 import { apiFetch } from '@/lib/api';
 import { exportToCsv } from '@/lib/exportCsv';
@@ -12,6 +12,14 @@ import { OcrScanner } from '@/components/fleet/OcrScanner';
 import { useSearchParams } from 'next/navigation';
 
 export default function DevicesDashboard() {
+  return (
+    <Suspense fallback={<div className="flex h-full w-full items-center justify-center"><div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" /></div>}>
+      <DevicesDashboardContent />
+    </Suspense>
+  );
+}
+
+function DevicesDashboardContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [devices, setDevices] = useState<any[]>([]);
